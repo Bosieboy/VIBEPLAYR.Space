@@ -2422,28 +2422,34 @@ async function tmLrcSearch() {
   closeTrackMenu();
   const track = allTracks.find(t => t.id === tmTrackId);
   if (!track) return;
-  showToast('LRC zoeken...');
+  showToast('Searching lyrics...');
   try {
-    // Probeer eerst exact match via /api/get
-    const getUrl = `https://lrclib.net/api/get?track_name=${encodeURIComponent(track.title)}&artist_name=${encodeURIComponent(track.artist !== 'Unknown' ? track.artist : '')}&album_name=${encodeURIComponent(track.album !== 'Unknown album' ? track.album : '')}&duration=${Math.round(track.duration || 0)}`;
     let syncedLyrics = null;
     let foundTitle = track.title;
 
-    const getRes = await fetch(getUrl);
-    if (getRes.ok) {
-      const data = await getRes.json();
-      if (data.syncedLyrics) {
-        syncedLyrics = data.syncedLyrics;
-        foundTitle = data.trackName || track.title;
+    // Stap 1: zoek via track_name + artist_name
+    const params = new URLSearchParams({ track_name: track.title });
+    if (track.artist && track.artist !== 'Unknown') params.set('artist_name', track.artist);
+    const searchRes = await fetch('https://lrclib.net/api/search?' + params.toString(), {
+      headers: { 'User-Agent': 'VIBEPLAYR Space v1.0 (https://github.com/Bosieboy/studeerlinks)' }
+    });
+    if (searchRes.ok) {
+      const results = await searchRes.json();
+      const match = results.find(r => r.syncedLyrics);
+      if (match) {
+        syncedLyrics = match.syncedLyrics;
+        foundTitle = match.trackName || track.title;
       }
     }
 
-    // Fallback: zoek via /api/search
+    // Stap 2: fallback met q= algemene zoekterm
     if (!syncedLyrics) {
-      const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(track.title + ' ' + (track.artist !== 'Unknown' ? track.artist : ''))}`;
-      const searchRes = await fetch(searchUrl);
-      if (searchRes.ok) {
-        const results = await searchRes.json();
+      const q = [track.title, track.artist !== 'Unknown' ? track.artist : ''].filter(Boolean).join(' ');
+      const fallbackRes = await fetch('https://lrclib.net/api/search?q=' + encodeURIComponent(q), {
+        headers: { 'User-Agent': 'VIBEPLAYR Space v1.0 (https://github.com/Bosieboy/studeerlinks)' }
+      });
+      if (fallbackRes.ok) {
+        const results = await fallbackRes.json();
         const match = results.find(r => r.syncedLyrics);
         if (match) {
           syncedLyrics = match.syncedLyrics;
@@ -2453,7 +2459,7 @@ async function tmLrcSearch() {
     }
 
     if (!syncedLyrics) {
-      showToast('Geen gesynchroniseerde LRC gevonden');
+      showToast('No synced lyrics found');
       return;
     }
 
@@ -2463,9 +2469,9 @@ async function tmLrcSearch() {
     if (idx >= 0) allTracks[idx] = track;
     if (currentQueue[currentIndex]?.id === track.id) loadLyrics(track.lrc);
     renderTrackList(allTracks);
-    showToast(`LRC gevonden: "${foundTitle}" ✓`);
+    showToast(`Lyrics found: "${foundTitle}" ✓`);
   } catch(e) {
-    showToast('LRC zoeken mislukt: ' + e.message);
+    showToast('Lyrics search failed: ' + e.message);
   }
 }
 
