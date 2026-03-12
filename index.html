@@ -1573,6 +1573,7 @@
 <script>
 // ===== STATE =====
 let db;
+const audioCache = new Map(); // trackId -> objectURL (in-memory, verdwijnt bij pagina refresh)
 let allTracks = [];
 let playlists = {};
 let currentQueue = [];
@@ -1673,40 +1674,36 @@ async function handleFileImport(input) {
 }
 
 async function importAudioFile(file) {
-  console.log('[import] start:', file.name, 'size:', file.size, 'type:', file.type);
   const id = 'track_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
   const meta = parseFileMeta(file.name);
   const extMap = {'mp3':'audio/mpeg','m4a':'audio/mp4','wav':'audio/wav','flac':'audio/flac','ogg':'audio/ogg','aac':'audio/aac','webm':'audio/webm'};
   const ext = file.name.split('.').pop().toLowerCase();
   const mimeType = (file.type && file.type !== 'application/octet-stream') ? file.type : (extMap[ext] || 'audio/mpeg');
 
+  // Maak objectURL van het bestand — direct afspeelbaar
+  const objectURL = URL.createObjectURL(file);
+  audioCache.set(id, objectURL);
+
+  // Bereken duur
+  const duration = await new Promise(res => {
+    const a = new Audio(objectURL);
+    a.onloadedmetadata = () => res(a.duration || 0);
+    a.onerror = () => res(0);
+    setTimeout(() => res(0), 3000);
+  });
+
+  // Sla ArrayBuffer op in DB voor persistentie
   const arrayBuffer = await file.arrayBuffer();
-  console.log('[import] arrayBuffer byteLength:', arrayBuffer.byteLength);
 
   const track = {
-    id,
-    title: meta.title,
+    id, title: meta.title,
     artist: meta.artist || 'Unknown',
     album: meta.album || 'Unknown album',
-    duration: 0,
-    mimeType,
+    duration, mimeType,
     audioData: arrayBuffer,
-    lrc: null,
-    addedAt: Date.now()
+    lrc: null, addedAt: Date.now()
   };
   await dbPut('tracks', track);
-  console.log('[import] opgeslagen in DB:', track.title);
-
-  // Duur op achtergrond
-  try {
-    const blob = new Blob([arrayBuffer], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    getAudioDuration(url).then(async dur => {
-      URL.revokeObjectURL(url);
-      console.log('[import] duur:', dur);
-      if (dur > 0) { track.duration = dur; await dbPut('tracks', track); }
-    });
-  } catch(e) {}
 }
 
 function arrayBufferToBase64(buffer) {
@@ -2120,29 +2117,31 @@ async function playCurrentTrack() {
   const track = currentQueue[currentIndex];
   if (!track) return;
 
-  const fullTrack = await dbGet('tracks', track.id);
-  if (!fullTrack) { console.log('[play] track niet gevonden in DB'); return; }
-
   // Revoke vorige URL
-  if (audio._blobUrl) { URL.revokeObjectURL(audio._blobUrl); audio._blobUrl = null; }
+  if (audio._blobUrl && !audioCache.has(track.id)) {
+    URL.revokeObjectURL(audio._blobUrl);
+  }
+  audio._blobUrl = null;
 
-  // Maak Blob van opgeslagen ArrayBuffer
-  const audioData = fullTrack.audioData || fullTrack.data;
-  console.log('[play]', fullTrack.title, '| audioData type:', typeof audioData, audioData instanceof ArrayBuffer ? audioData.byteLength + ' bytes' : (audioData ? audioData.length + ' chars' : 'LEEG'));
-  if (!audioData) { showToast('Geen audiodata gevonden'); return; }
+  // Gebruik cached objectURL als die er is (zelfde sessie)
+  let url = audioCache.get(track.id);
 
-  let blob;
-  if (audioData instanceof ArrayBuffer) {
-    blob = new Blob([audioData], { type: fullTrack.mimeType || 'audio/mpeg' });
-  } else {
-    // Legacy base64 fallback
-    const bin = atob(audioData.replace(/\s/g, ''));
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    blob = new Blob([bytes], { type: fullTrack.mimeType || 'audio/mpeg' });
+  if (!url) {
+    // Haal op uit DB en maak Blob
+    const fullTrack = await dbGet('tracks', track.id);
+    if (!fullTrack) { showToast('Track niet gevonden'); return; }
+
+    const audioData = fullTrack.audioData;
+    if (!audioData || !(audioData instanceof ArrayBuffer) || audioData.byteLength === 0) {
+      showToast('Geen audiodata — importeer het nummer opnieuw');
+      return;
+    }
+
+    const blob = new Blob([audioData], { type: fullTrack.mimeType || 'audio/mpeg' });
+    url = URL.createObjectURL(blob);
+    audioCache.set(track.id, url);
   }
 
-  const url = URL.createObjectURL(blob);
   audio._blobUrl = url;
   audio.src = url;
   audio.volume = parseFloat(document.getElementById('volume').value) || 0.8;
@@ -2151,8 +2150,11 @@ async function playCurrentTrack() {
   });
   isPlaying = true;
 
-  updatePlayerUI(fullTrack);
-  loadLyrics(fullTrack.lrc);
+  const fullTrack = await dbGet('tracks', track.id);
+  if (fullTrack) {
+    updatePlayerUI(fullTrack);
+    loadLyrics(fullTrack.lrc);
+  }
   renderTrackList(allTracks);
 }
 
