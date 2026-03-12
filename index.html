@@ -1676,44 +1676,47 @@ async function handleFileImport(input) {
 async function importAudioFile(file) {
   const id = 'track_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
   const meta = parseFileMeta(file.name);
-  const extMap = {'mp3':'audio/mpeg','m4a':'audio/mp4','wav':'audio/wav','flac':'audio/flac','ogg':'audio/ogg','aac':'audio/aac','webm':'audio/webm'};
+  const extMap = {'mp3':'audio/mpeg','m4a':'audio/mp4','wav':'audio/wav','flac':'audio/flac','ogg':'audio/ogg','aac':'audio/aac','webm':'audio/webm','opus':'audio/ogg'};
   const ext = file.name.split('.').pop().toLowerCase();
   const mimeType = (file.type && file.type !== 'application/octet-stream') ? file.type : (extMap[ext] || 'audio/mpeg');
 
-  // Sla ArrayBuffer op voor persistentie na refresh
   const arrayBuffer = await file.arrayBuffer();
+  const base64 = arrayBufferToBase64(arrayBuffer);
 
-  // Maak Blob URL — stabieler dan File objectURL
-  const blob = new Blob([arrayBuffer], { type: mimeType });
-  const blobURL = URL.createObjectURL(blob);
-  audioCache.set(id, blobURL);
-
-  // Wacht op metadata voor duur
-  const duration = await new Promise(res => {
-    const a = new Audio();
-    a.preload = 'metadata';
-    a.onloadedmetadata = () => { res(isFinite(a.duration) ? a.duration : 0); a.src = ''; };
-    a.onerror = () => res(0);
-    setTimeout(() => res(0), 5000);
-    a.src = blobURL;
-  });
+  // Duur berekenen
+  let duration = 0;
+  try {
+    const blob = new Blob([arrayBuffer], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    duration = await getAudioDuration(url);
+    URL.revokeObjectURL(url);
+  } catch(e) {}
 
   const track = {
     id, title: meta.title,
     artist: meta.artist || 'Unknown',
     album: meta.album || 'Unknown album',
     duration, mimeType,
-    audioData: arrayBuffer,
+    data: base64,
     lrc: null, addedAt: Date.now()
   };
   await dbPut('tracks', track);
 }
 
+async function getAudioUrl(track) {
+  if (track.data) {
+    return base64ToObjectURL(track.data, track.mimeType || 'audio/mpeg');
+  }
+  return null;
+}
+
 function arrayBufferToBase64(buffer) {
   const bytes = new Uint8Array(buffer);
   let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
   }
   return btoa(binary);
 }
@@ -2120,20 +2123,11 @@ async function playCurrentTrack() {
   const track = currentQueue[currentIndex];
   if (!track) return;
 
-  // Haal cached URL op
-  let url = audioCache.get(track.id);
+  const fullTrack = await dbGet('tracks', track.id);
+  if (!fullTrack) { showToast('Track niet gevonden'); return; }
 
-  if (!url) {
-    // Niet in cache — haal ArrayBuffer op uit DB en maak nieuwe Blob
-    const fullTrack = await dbGet('tracks', track.id);
-    if (!fullTrack || !fullTrack.audioData) {
-      showToast('Importeer dit nummer opnieuw');
-      return;
-    }
-    const blob = new Blob([fullTrack.audioData], { type: fullTrack.mimeType || 'audio/mpeg' });
-    url = URL.createObjectURL(blob);
-    audioCache.set(track.id, url);
-  }
+  const url = await getAudioUrl(fullTrack);
+  if (!url) { showToast('Importeer dit nummer opnieuw'); return; }
 
   audio.pause();
   audio.src = '';
@@ -2149,8 +2143,8 @@ async function playCurrentTrack() {
     return;
   }
 
-  const fullTrack = await dbGet('tracks', track.id);
-  if (fullTrack) { updatePlayerUI(fullTrack); loadLyrics(fullTrack.lrc); }
+  updatePlayerUI(fullTrack);
+  loadLyrics(fullTrack.lrc);
   renderTrackList(allTracks);
 }
 
