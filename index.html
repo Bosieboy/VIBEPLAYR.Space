@@ -1826,7 +1826,6 @@ async function handleFileImport(input) {
 
 async function importAudioFile(file) {
   const id = 'track_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
-  const meta = parseFileMeta(file.name);
   const extMap = {'mp3':'audio/mpeg','m4a':'audio/mp4','wav':'audio/wav','flac':'audio/flac','ogg':'audio/ogg','aac':'audio/aac','webm':'audio/webm','opus':'audio/ogg'};
   const ext = file.name.split('.').pop().toLowerCase();
   const mimeType = (file.type && file.type !== 'application/octet-stream') ? file.type : (extMap[ext] || 'audio/mpeg');
@@ -1834,7 +1833,15 @@ async function importAudioFile(file) {
   const arrayBuffer = await file.arrayBuffer();
   const base64 = arrayBufferToBase64(arrayBuffer);
 
-  // Duur berekenen
+  // Lees metadata uit het bestand zelf (ID3v2/v1, FLAC Vorbis)
+  const meta = await parseAudioMeta(arrayBuffer, file.name);
+
+  // Sla album art op als cover voor dit album
+  if (meta.coverDataUrl && meta.album) {
+    _setCover('album', meta.album, meta.coverDataUrl);
+  }
+
+  // Duur berekenen via Web Audio API (werkt ook voor VBR/FLAC)
   let duration = 0;
   try {
     const blob = new Blob([arrayBuffer], { type: mimeType });
@@ -1893,11 +1900,130 @@ function base64ToObjectURL(base64, mimeType) {
 function parseFileMeta(filename) {
   const name = filename.replace(/\.[^.]+$/, '');
   const parts = name.split(' - ');
-  if (parts.length >= 2) {
-    return { artist: parts[0].trim(), title: parts.slice(1).join(' - ').trim() };
-  }
+  if (parts.length >= 2) return { artist: parts[0].trim(), title: parts.slice(1).join(' - ').trim() };
   return { title: name };
 }
+
+// Lees string uit bytes met encoding byte
+function _id3Str(bytes, enc) {
+  try {
+    if (enc === 1 || enc === 2) {
+      const arr = new Uint8Array(bytes);
+      let str = '', start = 0;
+      if ((arr[0] === 0xFF && arr[1] === 0xFE) || (arr[0] === 0xFE && arr[1] === 0xFF)) start = 2;
+      const le = !(arr[0] === 0xFE && arr[1] === 0xFF);
+      for (let i = start; i + 1 < arr.length; i += 2) {
+        const code = le ? (arr[i] | (arr[i+1] << 8)) : ((arr[i] << 8) | arr[i+1]);
+        if (code === 0) break;
+        str += String.fromCodePoint(code);
+      }
+      return str;
+    }
+    const arr = new Uint8Array(bytes);
+    if (enc === 3) return new TextDecoder('utf-8').decode(arr).replace(/\0.*$/, '');
+    return new TextDecoder('latin1').decode(arr).replace(/\0.*$/, '');
+  } catch(e) { return ''; }
+}
+
+async function parseAudioMeta(arrayBuffer, filename) {
+  const result = parseFileMeta(filename);
+  const buf = new Uint8Array(arrayBuffer);
+
+  // ===== ID3v2 =====
+  if (buf[0] === 0x49 && buf[1] === 0x44 && buf[2] === 0x33) {
+    const v = buf[3];
+    const flags = buf[5];
+    const size = ((buf[6]&0x7F)<<21)|((buf[7]&0x7F)<<14)|((buf[8]&0x7F)<<7)|(buf[9]&0x7F);
+    let pos = 10;
+    if (flags & 0x40) { pos += (buf[10]<<24)|(buf[11]<<16)|(buf[12]<<8)|buf[13]; }
+    const end = 10 + size;
+    while (pos + 10 < end && pos < buf.length) {
+      const frameId = String.fromCharCode(buf[pos],buf[pos+1],buf[pos+2],buf[pos+3]);
+      if (!frameId.trim() || buf[pos] === 0) break;
+      const fSize = v >= 4
+        ? ((buf[pos+4]&0x7F)<<21)|((buf[pos+5]&0x7F)<<14)|((buf[pos+6]&0x7F)<<7)|(buf[pos+7]&0x7F)
+        : (buf[pos+4]<<24)|(buf[pos+5]<<16)|(buf[pos+6]<<8)|buf[pos+7];
+      pos += 10;
+      if (fSize <= 0 || pos + fSize > buf.length) break;
+      const enc = buf[pos];
+      const frameData = arrayBuffer.slice(pos, pos + fSize);
+      if (frameId === 'TIT2') result.title  = _id3Str(frameData.slice(1), enc) || result.title;
+      else if (frameId === 'TPE1') result.artist = _id3Str(frameData.slice(1), enc) || result.artist;
+      else if (frameId === 'TALB') result.album  = _id3Str(frameData.slice(1), enc) || result.album;
+      else if (frameId === 'TPE2') result.albumArtist = _id3Str(frameData.slice(1), enc);
+      else if (frameId === 'APIC') {
+        const fb = new Uint8Array(frameData);
+        let i = 1;
+        while (i < fb.length && fb[i] !== 0) i++;
+        const mime = new TextDecoder().decode(fb.slice(1, i)) || 'image/jpeg';
+        i++;
+        i++; // pictype
+        if (fb[0] === 1 || fb[0] === 2) { while (i+1 < fb.length && !(fb[i]===0&&fb[i+1]===0)) i+=2; i+=2; }
+        else { while (i < fb.length && fb[i] !== 0) i++; i++; }
+        const img = fb.slice(i);
+        if (img.length > 0) {
+          let bin = '';
+          img.forEach(b => bin += String.fromCharCode(b));
+          result.coverDataUrl = `data:${mime};base64,${btoa(bin)}`;
+        }
+      }
+      pos += fSize;
+    }
+    return result;
+  }
+
+  // ===== FLAC =====
+  if (buf[0]===0x66&&buf[1]===0x4C&&buf[2]===0x61&&buf[3]===0x43) {
+    let pos = 4;
+    while (pos < buf.length) {
+      const isLast = (buf[pos] & 0x80) !== 0;
+      const blockType = buf[pos] & 0x7F;
+      const blockSize = (buf[pos+1]<<16)|(buf[pos+2]<<8)|buf[pos+3];
+      pos += 4;
+      if (blockType === 4) {
+        let p = pos;
+        const vl = buf[p]|(buf[p+1]<<8)|(buf[p+2]<<16)|(buf[p+3]<<24); p += 4+vl;
+        const nc = buf[p]|(buf[p+1]<<8)|(buf[p+2]<<16)|(buf[p+3]<<24); p += 4;
+        for (let c = 0; c < nc; c++) {
+          const len = buf[p]|(buf[p+1]<<8)|(buf[p+2]<<16)|(buf[p+3]<<24); p += 4;
+          const comment = new TextDecoder().decode(buf.slice(p, p+len)); p += len;
+          const eq = comment.indexOf('=');
+          const k = comment.slice(0, eq).toUpperCase();
+          const val = comment.slice(eq+1);
+          if (k==='TITLE') result.title = val;
+          else if (k==='ARTIST') result.artist = val;
+          else if (k==='ALBUM') result.album = val;
+          else if (k==='ALBUMARTIST') result.albumArtist = val;
+        }
+      } else if (blockType === 6) {
+        let p = pos+4;
+        const ml = (buf[p]<<24)|(buf[p+1]<<16)|(buf[p+2]<<8)|buf[p+3]; p+=4;
+        const mime = new TextDecoder().decode(buf.slice(p,p+ml)); p+=ml;
+        const dl = (buf[p]<<24)|(buf[p+1]<<16)|(buf[p+2]<<8)|buf[p+3]; p+=4+dl+16;
+        const il = (buf[p]<<24)|(buf[p+1]<<16)|(buf[p+2]<<8)|buf[p+3]; p+=4;
+        const img = buf.slice(p, p+il);
+        let bin=''; img.forEach(b=>bin+=String.fromCharCode(b));
+        result.coverDataUrl = `data:${mime};base64,${btoa(bin)}`;
+      }
+      pos += blockSize;
+      if (isLast) break;
+    }
+    return result;
+  }
+
+  // ===== ID3v1 fallback =====
+  if (buf.length >= 128) {
+    const t = buf.slice(buf.length-128);
+    if (t[0]===0x54&&t[1]===0x41&&t[2]===0x47) {
+      const d = s => new TextDecoder('latin1').decode(s).replace(/\0.*$/,'').trim();
+      result.title  = d(t.slice(3,33))  || result.title;
+      result.artist = d(t.slice(33,63)) || result.artist;
+      result.album  = d(t.slice(63,93)) || result.album;
+    }
+  }
+  return result;
+}
+
 
 async function getAudioDuration(url, arrayBuffer) {
   // Probeer eerst Web Audio API — werkt altijd, ook VBR MP3 en FLAC
@@ -4301,6 +4427,14 @@ function _getCover(type, id) {
     const covers = JSON.parse(localStorage.getItem('vibeplayr-covers') || '{}');
     return covers[type + ':' + id] || null;
   } catch(e) { return null; }
+}
+
+function _setCover(type, id, dataUrl) {
+  try {
+    const covers = JSON.parse(localStorage.getItem('vibeplayr-covers') || '{}');
+    covers[type + ':' + id] = dataUrl;
+    localStorage.setItem('vibeplayr-covers', JSON.stringify(covers));
+  } catch(e) {}
 }
 
 async function init() {
