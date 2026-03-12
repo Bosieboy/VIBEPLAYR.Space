@@ -1836,9 +1836,10 @@ async function importAudioFile(file) {
   // Lees metadata uit het bestand zelf (ID3v2/v1, FLAC Vorbis)
   const meta = await parseAudioMeta(arrayBuffer, file.name);
 
-  // Sla album art op als cover voor dit album
-  if (meta.coverDataUrl && meta.album) {
-    _setCover('album', meta.album, meta.coverDataUrl);
+  // Sla album art op als cover voor dit album én voor de track zelf
+  if (meta.coverDataUrl) {
+    if (meta.album) _setCover('album', meta.album, meta.coverDataUrl);
+    _setCover('track', id, meta.coverDataUrl);
   }
 
   // Duur berekenen via Web Audio API (werkt ook voor VBR/FLAC)
@@ -2136,13 +2137,19 @@ function renderAlbums() {
   }
   noAlbums.style.display = 'none';
 
-  grid.innerHTML = albumArr.map(a => `
+  grid.innerHTML = albumArr.map(a => {
+    const cover = _getCover('album', a.name)
+      || _getCover('track', a.tracks[0]?.id);
+    const art = cover
+      ? `<img src="${cover}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`
+      : '💿';
+    return `
     <div class="album-card" onclick="openAlbum('${esc(a.name)}')">
-      <div class="album-art">💿</div>
+      <div class="album-art">${art}</div>
       <div class="album-name">${esc(a.name)}</div>
       <div class="album-artist">${esc(a.artist)}</div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 function openAlbum(name) {
@@ -2153,7 +2160,7 @@ function openAlbum(name) {
   document.getElementById('album-detail-name').textContent = name;
   document.getElementById('album-detail-name').onclick = startAlbumRename;
   document.getElementById('album-detail-artist').textContent = tracks[0]?.artist || '';
-  const cover = _getCover('album', name);
+  const cover = _getCover('album', name) || _getCover('track', tracks[0]?.id);
   document.getElementById('album-detail-art').innerHTML = cover
     ? `<img src="${cover}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`
     : '💿';
@@ -2204,7 +2211,7 @@ async function createAlbum() {
   currentAlbumTracks = allTracks.filter(t => t.album === name);
   document.getElementById('album-detail-name').textContent = name;
   document.getElementById('album-detail-artist').textContent = artist || '';
-  const cover = _getCover('album', name);
+  const cover = _getCover('album', name) || _getCover('track', tracks[0]?.id);
   document.getElementById('album-detail-art').innerHTML = cover ? `<img src="${cover}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">` : '💿';
   const tbody = document.getElementById('album-track-list');
   tbody.innerHTML = currentAlbumTracks.length === 0
@@ -2724,7 +2731,11 @@ async function playCurrentTrack() {
 }
 
 function updatePlayerUI(track) {
-  document.getElementById('player-art').innerHTML = '🎵';
+  const cover = _getCover('track', track.id) || _getCover('album', track.album) || null;
+  const artEl = document.getElementById('player-art');
+  artEl.innerHTML = cover
+    ? `<img src="${cover}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">`
+    : '🎵';
   document.getElementById('player-info').innerHTML = `
     <div class="player-track-name">${esc(track.title)}</div>
     <div class="player-artist">${esc(track.artist)}</div>
@@ -2732,11 +2743,14 @@ function updatePlayerUI(track) {
   document.getElementById('icon-play').style.display = 'none';
   document.getElementById('icon-pause').style.display = 'block';
   document.title = `${track.title} — VIBEPLAYR Space`;
-  // Update fullscreen mini player info
   const fsName = document.getElementById('fs-track-name');
   const fsArtist = document.getElementById('fs-artist');
+  const fsArt = document.getElementById('fs-art');
   if (fsName) fsName.textContent = track.title;
   if (fsArtist) fsArtist.textContent = track.artist;
+  if (fsArt) fsArt.innerHTML = cover
+    ? `<img src="${cover}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">`
+    : '🎵';
 }
 
 function togglePlay() {
