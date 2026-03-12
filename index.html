@@ -1673,14 +1673,15 @@ async function handleFileImport(input) {
 }
 
 async function importAudioFile(file) {
+  console.log('[import] start:', file.name, 'size:', file.size, 'type:', file.type);
   const id = 'track_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
   const meta = parseFileMeta(file.name);
   const extMap = {'mp3':'audio/mpeg','m4a':'audio/mp4','wav':'audio/wav','flac':'audio/flac','ogg':'audio/ogg','aac':'audio/aac','webm':'audio/webm'};
   const ext = file.name.split('.').pop().toLowerCase();
   const mimeType = (file.type && file.type !== 'application/octet-stream') ? file.type : (extMap[ext] || 'audio/mpeg');
 
-  // Sla op als ArrayBuffer — direct in IndexedDB, geen base64 conversie
   const arrayBuffer = await file.arrayBuffer();
+  console.log('[import] arrayBuffer byteLength:', arrayBuffer.byteLength);
 
   const track = {
     id,
@@ -1694,6 +1695,7 @@ async function importAudioFile(file) {
     addedAt: Date.now()
   };
   await dbPut('tracks', track);
+  console.log('[import] opgeslagen in DB:', track.title);
 
   // Duur op achtergrond
   try {
@@ -1701,6 +1703,7 @@ async function importAudioFile(file) {
     const url = URL.createObjectURL(blob);
     getAudioDuration(url).then(async dur => {
       URL.revokeObjectURL(url);
+      console.log('[import] duur:', dur);
       if (dur > 0) { track.duration = dur; await dbPut('tracks', track); }
     });
   } catch(e) {}
@@ -2118,13 +2121,14 @@ async function playCurrentTrack() {
   if (!track) return;
 
   const fullTrack = await dbGet('tracks', track.id);
-  if (!fullTrack) return;
+  if (!fullTrack) { console.log('[play] track niet gevonden in DB'); return; }
 
   // Revoke vorige URL
   if (audio._blobUrl) { URL.revokeObjectURL(audio._blobUrl); audio._blobUrl = null; }
 
   // Maak Blob van opgeslagen ArrayBuffer
   const audioData = fullTrack.audioData || fullTrack.data;
+  console.log('[play]', fullTrack.title, '| audioData type:', typeof audioData, audioData instanceof ArrayBuffer ? audioData.byteLength + ' bytes' : (audioData ? audioData.length + ' chars' : 'LEEG'));
   if (!audioData) { showToast('Geen audiodata gevonden'); return; }
 
   let blob;
