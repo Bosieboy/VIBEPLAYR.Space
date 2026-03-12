@@ -1839,7 +1839,7 @@ async function importAudioFile(file) {
   try {
     const blob = new Blob([arrayBuffer], { type: mimeType });
     const url = URL.createObjectURL(blob);
-    duration = await getAudioDuration(url);
+    duration = await getAudioDuration(url, arrayBuffer);
     URL.revokeObjectURL(url);
   } catch(e) {}
 
@@ -1899,37 +1899,28 @@ function parseFileMeta(filename) {
   return { title: name };
 }
 
-function getAudioDuration(url) {
+async function getAudioDuration(url, arrayBuffer) {
+  // Probeer eerst Web Audio API — werkt altijd, ook VBR MP3 en FLAC
+  if (arrayBuffer) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const buffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
+      const dur = buffer.duration;
+      ctx.close();
+      if (dur && isFinite(dur) && dur > 0) return dur;
+    } catch(e) {}
+  }
+  // Fallback: HTMLAudioElement
   return new Promise((res) => {
     const a = new Audio();
     a.preload = 'metadata';
-    let resolved = false;
-    const done = (val) => {
-      if (resolved) return;
-      resolved = true;
-      a.src = '';
-      res(val);
-    };
-
     a.onloadedmetadata = () => {
-      // Sommige bestanden (Spotidownloader) geven Infinity of 0 terug
-      // In dat geval: seek naar het einde zodat de browser de echte duur berekent
-      if (!a.duration || !isFinite(a.duration)) {
-        a.currentTime = 1e10; // seek naar einde
-      } else {
-        done(a.duration);
-      }
+      if (isFinite(a.duration) && a.duration > 0) { a.src = ''; res(a.duration); }
+      else { a.currentTime = 1e10; }
     };
-
-    // Fired nadat seek naar einde de echte duur onthult
-    a.ontimeupdate = () => {
-      if (isFinite(a.duration) && a.duration > 0) {
-        done(a.duration);
-      }
-    };
-
-    a.onerror = () => done(0);
-    setTimeout(() => done(a.duration && isFinite(a.duration) ? a.duration : 0), 8000);
+    a.ontimeupdate = () => { if (isFinite(a.duration) && a.duration > 0) { a.src = ''; res(a.duration); } };
+    a.onerror = () => { a.src = ''; res(0); };
+    setTimeout(() => { res(a.duration && isFinite(a.duration) ? a.duration : 0); a.src = ''; }, 8000);
     a.src = url;
   });
 }
