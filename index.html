@@ -1679,15 +1679,8 @@ async function importAudioFile(file) {
   const ext = file.name.split('.').pop().toLowerCase();
   const mimeType = (file.type && file.type !== 'application/octet-stream') ? file.type : (extMap[ext] || 'audio/mpeg');
 
-  // Gebruik FileReader — native base64, geen JS loop die crasht bij grote bestanden
-  const dataUrl = await new Promise((res, rej) => {
-    const reader = new FileReader();
-    reader.onload = e => res(e.target.result);
-    reader.onerror = () => rej(new Error('FileReader error'));
-    reader.readAsDataURL(file);
-  });
-  // dataUrl = "data:audio/mpeg;base64,AAAA..." — strip het prefix
-  const base64 = dataUrl.split(',')[1];
+  // Sla op als ArrayBuffer — direct in IndexedDB, geen base64 conversie
+  const arrayBuffer = await file.arrayBuffer();
 
   const track = {
     id,
@@ -1696,15 +1689,16 @@ async function importAudioFile(file) {
     album: meta.album || 'Unknown album',
     duration: 0,
     mimeType,
-    data: base64,
+    audioData: arrayBuffer,
     lrc: null,
     addedAt: Date.now()
   };
   await dbPut('tracks', track);
 
-  // Bereken duur op achtergrond
+  // Duur op achtergrond
   try {
-    const url = URL.createObjectURL(file);
+    const blob = new Blob([arrayBuffer], { type: mimeType });
+    const url = URL.createObjectURL(blob);
     getAudioDuration(url).then(async dur => {
       URL.revokeObjectURL(url);
       if (dur > 0) { track.duration = dur; await dbPut('tracks', track); }
@@ -2123,14 +2117,34 @@ async function playCurrentTrack() {
   const track = currentQueue[currentIndex];
   if (!track) return;
 
-  // Load full track from DB
   const fullTrack = await dbGet('tracks', track.id);
   if (!fullTrack) return;
 
-  const url = base64ToObjectURL(fullTrack.data, fullTrack.mimeType || 'audio/mpeg');
+  // Revoke vorige URL
+  if (audio._blobUrl) { URL.revokeObjectURL(audio._blobUrl); audio._blobUrl = null; }
+
+  // Maak Blob van opgeslagen ArrayBuffer
+  const audioData = fullTrack.audioData || fullTrack.data;
+  if (!audioData) { showToast('Geen audiodata gevonden'); return; }
+
+  let blob;
+  if (audioData instanceof ArrayBuffer) {
+    blob = new Blob([audioData], { type: fullTrack.mimeType || 'audio/mpeg' });
+  } else {
+    // Legacy base64 fallback
+    const bin = atob(audioData.replace(/\s/g, ''));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    blob = new Blob([bytes], { type: fullTrack.mimeType || 'audio/mpeg' });
+  }
+
+  const url = URL.createObjectURL(blob);
+  audio._blobUrl = url;
   audio.src = url;
-  audio.volume = parseFloat(document.getElementById('volume').value);
-  audio.play();
+  audio.volume = parseFloat(document.getElementById('volume').value) || 0.8;
+  audio.play().catch(err => {
+    if (err.name !== 'NotAllowedError') showToast('Afspelen mislukt: ' + err.message);
+  });
   isPlaying = true;
 
   updatePlayerUI(fullTrack);
