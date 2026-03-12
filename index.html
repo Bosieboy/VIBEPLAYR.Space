@@ -1903,9 +1903,33 @@ function getAudioDuration(url) {
   return new Promise((res) => {
     const a = new Audio();
     a.preload = 'metadata';
-    a.onloadedmetadata = () => { res(a.duration || 0); a.src = ''; };
-    a.onerror = () => { res(0); };
-    setTimeout(() => { res(0); a.src = ''; }, 3000);
+    let resolved = false;
+    const done = (val) => {
+      if (resolved) return;
+      resolved = true;
+      a.src = '';
+      res(val);
+    };
+
+    a.onloadedmetadata = () => {
+      // Sommige bestanden (Spotidownloader) geven Infinity of 0 terug
+      // In dat geval: seek naar het einde zodat de browser de echte duur berekent
+      if (!a.duration || !isFinite(a.duration)) {
+        a.currentTime = 1e10; // seek naar einde
+      } else {
+        done(a.duration);
+      }
+    };
+
+    // Fired nadat seek naar einde de echte duur onthult
+    a.ontimeupdate = () => {
+      if (isFinite(a.duration) && a.duration > 0) {
+        done(a.duration);
+      }
+    };
+
+    a.onerror = () => done(0);
+    setTimeout(() => done(a.duration && isFinite(a.duration) ? a.duration : 0), 8000);
     a.src = url;
   });
 }
