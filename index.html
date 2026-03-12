@@ -1852,6 +1852,16 @@ async function importAudioFile(file) {
     lrc: null, addedAt: Date.now()
   };
   await dbPut('tracks', track);
+
+  // Scan automatisch voor LRC op achtergrond, update UI wanneer gevonden
+  fetchLrcForTrack(track).then(async lrc => {
+    if (lrc) {
+      track.lrc = lrc;
+      await dbPut('tracks', track);
+      const idx = allTracks.findIndex(t => t.id === track.id);
+      if (idx >= 0) { allTracks[idx] = track; renderTrackList(allTracks); }
+    }
+  });
 }
 
 async function getAudioUrl(track) {
@@ -2791,6 +2801,32 @@ function tmLrcUpload() {
   triggerLrcUpload(id);
 }
 
+async function fetchLrcForTrack(track) {
+  try {
+    const params = new URLSearchParams({ track_name: track.title });
+    if (track.artist && track.artist !== 'Unknown') params.set('artist_name', track.artist);
+    const res = await fetch('https://lrclib.net/api/search?' + params.toString(), {
+      headers: { 'User-Agent': 'VIBEPLAYR Space v1.0 (https://github.com/Bosieboy/studeerlinks)' }
+    });
+    if (res.ok) {
+      const results = await res.json();
+      const match = results.find(r => r.syncedLyrics);
+      if (match) return match.syncedLyrics;
+    }
+    // Fallback: algemene zoekopdracht
+    const q = [track.title, track.artist !== 'Unknown' ? track.artist : ''].filter(Boolean).join(' ');
+    const res2 = await fetch('https://lrclib.net/api/search?q=' + encodeURIComponent(q), {
+      headers: { 'User-Agent': 'VIBEPLAYR Space v1.0 (https://github.com/Bosieboy/studeerlinks)' }
+    });
+    if (res2.ok) {
+      const results2 = await res2.json();
+      const match2 = results2.find(r => r.syncedLyrics);
+      if (match2) return match2.syncedLyrics;
+    }
+  } catch(e) {}
+  return null;
+}
+
 async function tmLrcSearch() {
   const id = tmTrackId;
   closeTrackMenu();
@@ -2798,56 +2834,15 @@ async function tmLrcSearch() {
   const track = allTracks.find(t => t.id === id);
   if (!track) return;
   showToast('Searching lyrics...');
-  try {
-    let syncedLyrics = null;
-    let foundTitle = track.title;
-
-    // Stap 1: zoek via track_name + artist_name
-    const params = new URLSearchParams({ track_name: track.title });
-    if (track.artist && track.artist !== 'Unknown') params.set('artist_name', track.artist);
-    const searchRes = await fetch('https://lrclib.net/api/search?' + params.toString(), {
-      headers: { 'User-Agent': 'VIBEPLAYR Space v1.0 (https://github.com/Bosieboy/studeerlinks)' }
-    });
-    if (searchRes.ok) {
-      const results = await searchRes.json();
-      const match = results.find(r => r.syncedLyrics);
-      if (match) {
-        syncedLyrics = match.syncedLyrics;
-        foundTitle = match.trackName || track.title;
-      }
-    }
-
-    // Stap 2: fallback met q= algemene zoekterm
-    if (!syncedLyrics) {
-      const q = [track.title, track.artist !== 'Unknown' ? track.artist : ''].filter(Boolean).join(' ');
-      const fallbackRes = await fetch('https://lrclib.net/api/search?q=' + encodeURIComponent(q), {
-        headers: { 'User-Agent': 'VIBEPLAYR Space v1.0 (https://github.com/Bosieboy/studeerlinks)' }
-      });
-      if (fallbackRes.ok) {
-        const results = await fallbackRes.json();
-        const match = results.find(r => r.syncedLyrics);
-        if (match) {
-          syncedLyrics = match.syncedLyrics;
-          foundTitle = match.trackName || track.title;
-        }
-      }
-    }
-
-    if (!syncedLyrics) {
-      showToast('No synced lyrics found');
-      return;
-    }
-
-    track.lrc = syncedLyrics;
-    await dbPut('tracks', track);
-    const idx = allTracks.findIndex(t => t.id === track.id);
-    if (idx >= 0) allTracks[idx] = track;
-    if (currentQueue[currentIndex]?.id === track.id) loadLyrics(track.lrc);
-    renderTrackList(allTracks);
-    showToast(`Lyrics found: "${foundTitle}" ✓`);
-  } catch(e) {
-    showToast('Lyrics search failed: ' + e.message);
-  }
+  const lrc = await fetchLrcForTrack(track);
+  if (!lrc) { showToast('No synced lyrics found'); return; }
+  track.lrc = lrc;
+  await dbPut('tracks', track);
+  const idx = allTracks.findIndex(t => t.id === track.id);
+  if (idx >= 0) allTracks[idx] = track;
+  if (currentQueue[currentIndex]?.id === track.id) loadLyrics(track.lrc);
+  renderTrackList(allTracks);
+  showToast('Lyrics found ✓');
 }
 
 async function tmDelete() {
