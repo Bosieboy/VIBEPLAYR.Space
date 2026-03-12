@@ -217,7 +217,23 @@
     justify-content: flex-end;
   }
   .track-row:hover .track-actions { opacity: 1; }
-  .track-action-btn {
+  .track-row td:last-child { width: 40px; }
+  .dots-btn {
+    font-size: 20px;
+    font-weight: 900;
+    padding: 0 8px;
+    background: transparent !important;
+    color: var(--text2);
+    border: none;
+    cursor: pointer;
+    border-radius: 6px;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity 0.15s, background 0.1s;
+  }
+  .track-row:hover .dots-btn { opacity: 1; }
+  .dots-btn:hover { background: var(--bg3) !important; color: var(--text) !important; }
+  #track-menu.open ~ * .dots-btn { opacity: 1; }
     background: var(--bg4);
     border: none;
     border-radius: 4px;
@@ -2406,30 +2422,48 @@ async function tmLrcSearch() {
   closeTrackMenu();
   const track = allTracks.find(t => t.id === tmTrackId);
   if (!track) return;
-  showToast('LRC zoeken via LRCLIB...');
+  showToast('LRC zoeken...');
   try {
-    const params = new URLSearchParams({
-      track_name: track.title,
-      artist_name: track.artist !== 'Unknown' ? track.artist : '',
-    });
-    const res = await fetch(`https://lrclib.net/api/search?${params}`);
-    if (!res.ok) throw new Error('Geen resultaat');
-    const results = await res.json();
-    if (!results || results.length === 0) {
-      showToast('Geen LRC gevonden voor dit nummer');
+    // Probeer eerst exact match via /api/get
+    const getUrl = `https://lrclib.net/api/get?track_name=${encodeURIComponent(track.title)}&artist_name=${encodeURIComponent(track.artist !== 'Unknown' ? track.artist : '')}&album_name=${encodeURIComponent(track.album !== 'Unknown album' ? track.album : '')}&duration=${Math.round(track.duration || 0)}`;
+    let syncedLyrics = null;
+    let foundTitle = track.title;
+
+    const getRes = await fetch(getUrl);
+    if (getRes.ok) {
+      const data = await getRes.json();
+      if (data.syncedLyrics) {
+        syncedLyrics = data.syncedLyrics;
+        foundTitle = data.trackName || track.title;
+      }
+    }
+
+    // Fallback: zoek via /api/search
+    if (!syncedLyrics) {
+      const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(track.title + ' ' + (track.artist !== 'Unknown' ? track.artist : ''))}`;
+      const searchRes = await fetch(searchUrl);
+      if (searchRes.ok) {
+        const results = await searchRes.json();
+        const match = results.find(r => r.syncedLyrics);
+        if (match) {
+          syncedLyrics = match.syncedLyrics;
+          foundTitle = match.trackName || track.title;
+        }
+      }
+    }
+
+    if (!syncedLyrics) {
+      showToast('Geen gesynchroniseerde LRC gevonden');
       return;
     }
-    // Pak eerste resultaat met synced lyrics
-    const match = results.find(r => r.syncedLyrics) || results[0];
-    if (!match.syncedLyrics) {
-      showToast('Alleen ongesynchroniseerde tekst gevonden');
-      return;
-    }
-    track.lrc = match.syncedLyrics;
+
+    track.lrc = syncedLyrics;
     await dbPut('tracks', track);
-    await loadTracks();
+    const idx = allTracks.findIndex(t => t.id === track.id);
+    if (idx >= 0) allTracks[idx] = track;
     if (currentQueue[currentIndex]?.id === track.id) loadLyrics(track.lrc);
-    showToast(`LRC gevonden: "${match.trackName}" ✓`);
+    renderTrackList(allTracks);
+    showToast(`LRC gevonden: "${foundTitle}" ✓`);
   } catch(e) {
     showToast('LRC zoeken mislukt: ' + e.message);
   }
@@ -3981,17 +4015,17 @@ init();
 
 <!-- Context menu -->
 <div id="track-menu">
-  <div class="tmenu-item" onclick="tmPlay()">▶ Afspelen</div>
-  <div class="tmenu-item" onclick="tmAddToPlaylist()">🎵 Toevoegen aan playlist</div>
+  <div class="tmenu-item" onclick="tmPlay()">▶ Play</div>
+  <div class="tmenu-item" onclick="tmAddToPlaylist()">🎵 Add to playlist</div>
   <div class="tmenu-sep"></div>
-  <div class="tmenu-item" onclick="tmEditTitle()">✏️ Titel bewerken</div>
-  <div class="tmenu-item" onclick="tmEditArtist()">👤 Artiest bewerken</div>
-  <div class="tmenu-item" onclick="tmEditAlbum()">💿 Album bewerken</div>
+  <div class="tmenu-item" onclick="tmEditTitle()">✏️ Edit title</div>
+  <div class="tmenu-item" onclick="tmEditArtist()">👤 Edit artist</div>
+  <div class="tmenu-item" onclick="tmEditAlbum()">💿 Edit album</div>
   <div class="tmenu-sep"></div>
-  <div class="tmenu-item" onclick="tmLrcSearch()">🔍 LRC zoeken (automatisch)</div>
-  <div class="tmenu-item" onclick="tmLrcUpload()">📂 LRC uploaden</div>
+  <div class="tmenu-item" onclick="tmLrcSearch()">🔍 Find lyrics (LRCLIB)</div>
+  <div class="tmenu-item" onclick="tmLrcUpload()">📂 Upload LRC file</div>
   <div class="tmenu-sep"></div>
-  <div class="tmenu-item danger" onclick="tmDelete()">🗑 Verwijderen</div>
+  <div class="tmenu-item danger" onclick="tmDelete()">🗑 Delete</div>
 </div>
 
 <div id="ctx-menu">
