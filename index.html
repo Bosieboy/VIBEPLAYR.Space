@@ -1811,7 +1811,7 @@ function renderTrackList(tracks) {
   noTracks.style.display = 'none';
 
   tbody.innerHTML = tracks.map((t, i) => `
-    <tr class="track-row ${currentQueue[currentIndex]?.id === t.id ? 'playing' : ''}" ondblclick="playTrackById('${t.id}', null)" oncontextmenu="openCtxMenu(event,'${t.id}')">
+    <tr class="track-row ${currentQueue[currentIndex]?.id === t.id ? 'playing' : ''}" data-id="${t.id}" ondblclick="playTrackById('${t.id}', null)">
       <td>${currentQueue[currentIndex]?.id === t.id ? `<div class="bars"><div class="bar"></div><div class="bar"></div><div class="bar"></div></div>` : (i+1)}</td>
       <td><span class="track-title">${esc(t.title)}</span></td>
       <td>${esc(t.artist)}</td>
@@ -2311,6 +2311,12 @@ function closeCtxMenu() {
 
 document.addEventListener('click', e => { if (!e.target.closest('#ctx-menu')) closeCtxMenu(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCtxMenu(); });
+document.addEventListener('contextmenu', e => {
+  const row = e.target.closest('.track-row[data-id]');
+  if (row) {
+    openCtxMenu(e, row.dataset.id);
+  }
+});
 
 function ctxPlay() {
   if (!ctxTrackId) return;
