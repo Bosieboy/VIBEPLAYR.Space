@@ -2358,69 +2358,76 @@ document.addEventListener('click', e => {
 });
 
 function tmPlay() {
-  if (!tmTrackId) return;
-  playTrackById(tmTrackId, null);
+  const id = tmTrackId;
   closeTrackMenu();
+  if (!id) return;
+  playTrackById(id, null);
 }
 
 function tmAddToPlaylist() {
-  if (!tmTrackId) return;
-  openAddToPlaylist(tmTrackId);
+  const id = tmTrackId;
   closeTrackMenu();
+  if (!id) return;
+  openAddToPlaylist(id);
 }
 
 async function tmEditTitle() {
-  if (!tmTrackId) return;
+  const id = tmTrackId;
   closeTrackMenu();
-  const track = allTracks.find(t => t.id === tmTrackId);
+  if (!id) return;
+  const track = allTracks.find(t => t.id === id);
   if (!track) return;
-  const newVal = prompt('Nieuwe titel:', track.title);
+  const newVal = prompt('Edit title:', track.title);
   if (newVal && newVal.trim() && newVal.trim() !== track.title) {
     track.title = newVal.trim();
     await dbPut('tracks', track);
     await loadTracks();
-    showToast('Titel bijgewerkt ✓');
+    showToast('Title updated ✓');
   }
 }
 
 async function tmEditArtist() {
-  if (!tmTrackId) return;
+  const id = tmTrackId;
   closeTrackMenu();
-  const track = allTracks.find(t => t.id === tmTrackId);
+  if (!id) return;
+  const track = allTracks.find(t => t.id === id);
   if (!track) return;
-  const newVal = prompt('Nieuwe artiest:', track.artist);
+  const newVal = prompt('Edit artist:', track.artist);
   if (newVal && newVal.trim() && newVal.trim() !== track.artist) {
     track.artist = newVal.trim();
     await dbPut('tracks', track);
     await loadTracks();
-    showToast('Artiest bijgewerkt ✓');
+    showToast('Artist updated ✓');
   }
 }
 
 async function tmEditAlbum() {
-  if (!tmTrackId) return;
+  const id = tmTrackId;
   closeTrackMenu();
-  const track = allTracks.find(t => t.id === tmTrackId);
+  if (!id) return;
+  const track = allTracks.find(t => t.id === id);
   if (!track) return;
-  const newVal = prompt('Nieuw album:', track.album);
+  const newVal = prompt('Edit album:', track.album);
   if (newVal && newVal.trim() && newVal.trim() !== track.album) {
     track.album = newVal.trim();
     await dbPut('tracks', track);
     await loadTracks();
-    showToast('Album bijgewerkt ✓');
+    showToast('Album updated ✓');
   }
 }
 
 function tmLrcUpload() {
-  if (!tmTrackId) return;
+  const id = tmTrackId;
   closeTrackMenu();
-  triggerLrcUpload(tmTrackId);
+  if (!id) return;
+  triggerLrcUpload(id);
 }
 
 async function tmLrcSearch() {
-  if (!tmTrackId) return;
+  const id = tmTrackId;
   closeTrackMenu();
-  const track = allTracks.find(t => t.id === tmTrackId);
+  if (!id) return;
+  const track = allTracks.find(t => t.id === id);
   if (!track) return;
   showToast('Searching lyrics...');
   try {
@@ -2476,9 +2483,10 @@ async function tmLrcSearch() {
 }
 
 async function tmDelete() {
-  if (!tmTrackId) return;
-  deleteTrack(tmTrackId);
+  const id = tmTrackId;
   closeTrackMenu();
+  if (!id) return;
+  deleteTrack(id);
 }
 
 // ===== CONTEXT MENU =====
