@@ -233,6 +233,36 @@
   }
   .track-action-btn:hover { background: var(--accent); color: white; }
   .track-action-btn.danger:hover { background: var(--red); color: white; }
+  .dots-btn { font-size: 18px; font-weight: 700; padding: 2px 10px; letter-spacing: 1px; }
+
+  /* Track dropdown menu */
+  #track-menu {
+    position: fixed;
+    z-index: 9999;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 6px 0;
+    min-width: 210px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    display: none;
+  }
+  #track-menu.open { display: block; }
+  .tmenu-item {
+    padding: 9px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    font-family: 'Syne', sans-serif;
+    color: var(--text1);
+    transition: background 0.1s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tmenu-item:hover { background: var(--bg3); }
+  .tmenu-item.danger { color: #f87171; }
+  .tmenu-sep { height: 1px; background: var(--border); margin: 4px 0; }
+
 
   .no-tracks {
     text-align: center;
@@ -1820,9 +1850,7 @@ function renderTrackList(tracks) {
       <td>${t.lrc ? '<span class="lrc-badge">LRC</span>' : ''}</td>
       <td>
         <div class="track-actions">
-          <button class="track-action-btn" onclick="event.stopPropagation();triggerLrcUpload('${t.id}')">📝 LRC</button>
-          <button class="track-action-btn" onclick="event.stopPropagation();openAddToPlaylist('${t.id}')">+ Playlist</button>
-          <button class="track-action-btn danger" onclick="event.stopPropagation();deleteTrack('${t.id}')">✕</button>
+          <button class="track-action-btn dots-btn" onclick="event.stopPropagation();openTrackMenu(event,'${t.id}')" title="Opties">⋯</button>
         </div>
       </td>
     </tr>
@@ -2287,6 +2315,132 @@ audio.addEventListener('pause', () => {
 
 // ===== DELETE TRACK (met undo) =====
 let _undoBuffer = null;
+// ===== TRACK MENU (⋯ knop) =====
+let tmTrackId = null;
+
+function openTrackMenu(event, trackId) {
+  tmTrackId = trackId;
+  const menu = document.getElementById('track-menu');
+  menu.classList.add('open');
+  const rect = event.target.getBoundingClientRect();
+  let x = rect.right + 4;
+  let y = rect.top;
+  if (x + 220 > window.innerWidth) x = rect.left - 224;
+  if (y + 320 > window.innerHeight) y = window.innerHeight - 325;
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+}
+
+function closeTrackMenu() {
+  const menu = document.getElementById('track-menu');
+  if (menu) menu.classList.remove('open');
+  tmTrackId = null;
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#track-menu') && !e.target.closest('.dots-btn')) closeTrackMenu();
+});
+
+function tmPlay() {
+  if (!tmTrackId) return;
+  playTrackById(tmTrackId, null);
+  closeTrackMenu();
+}
+
+function tmAddToPlaylist() {
+  if (!tmTrackId) return;
+  openAddToPlaylist(tmTrackId);
+  closeTrackMenu();
+}
+
+async function tmEditTitle() {
+  if (!tmTrackId) return;
+  closeTrackMenu();
+  const track = allTracks.find(t => t.id === tmTrackId);
+  if (!track) return;
+  const newVal = prompt('Nieuwe titel:', track.title);
+  if (newVal && newVal.trim() && newVal.trim() !== track.title) {
+    track.title = newVal.trim();
+    await dbPut('tracks', track);
+    await loadTracks();
+    showToast('Titel bijgewerkt ✓');
+  }
+}
+
+async function tmEditArtist() {
+  if (!tmTrackId) return;
+  closeTrackMenu();
+  const track = allTracks.find(t => t.id === tmTrackId);
+  if (!track) return;
+  const newVal = prompt('Nieuwe artiest:', track.artist);
+  if (newVal && newVal.trim() && newVal.trim() !== track.artist) {
+    track.artist = newVal.trim();
+    await dbPut('tracks', track);
+    await loadTracks();
+    showToast('Artiest bijgewerkt ✓');
+  }
+}
+
+async function tmEditAlbum() {
+  if (!tmTrackId) return;
+  closeTrackMenu();
+  const track = allTracks.find(t => t.id === tmTrackId);
+  if (!track) return;
+  const newVal = prompt('Nieuw album:', track.album);
+  if (newVal && newVal.trim() && newVal.trim() !== track.album) {
+    track.album = newVal.trim();
+    await dbPut('tracks', track);
+    await loadTracks();
+    showToast('Album bijgewerkt ✓');
+  }
+}
+
+function tmLrcUpload() {
+  if (!tmTrackId) return;
+  closeTrackMenu();
+  triggerLrcUpload(tmTrackId);
+}
+
+async function tmLrcSearch() {
+  if (!tmTrackId) return;
+  closeTrackMenu();
+  const track = allTracks.find(t => t.id === tmTrackId);
+  if (!track) return;
+  showToast('LRC zoeken via LRCLIB...');
+  try {
+    const params = new URLSearchParams({
+      track_name: track.title,
+      artist_name: track.artist !== 'Unknown' ? track.artist : '',
+    });
+    const res = await fetch(`https://lrclib.net/api/search?${params}`);
+    if (!res.ok) throw new Error('Geen resultaat');
+    const results = await res.json();
+    if (!results || results.length === 0) {
+      showToast('Geen LRC gevonden voor dit nummer');
+      return;
+    }
+    // Pak eerste resultaat met synced lyrics
+    const match = results.find(r => r.syncedLyrics) || results[0];
+    if (!match.syncedLyrics) {
+      showToast('Alleen ongesynchroniseerde tekst gevonden');
+      return;
+    }
+    track.lrc = match.syncedLyrics;
+    await dbPut('tracks', track);
+    await loadTracks();
+    if (currentQueue[currentIndex]?.id === track.id) loadLyrics(track.lrc);
+    showToast(`LRC gevonden: "${match.trackName}" ✓`);
+  } catch(e) {
+    showToast('LRC zoeken mislukt: ' + e.message);
+  }
+}
+
+async function tmDelete() {
+  if (!tmTrackId) return;
+  deleteTrack(tmTrackId);
+  closeTrackMenu();
+}
+
 // ===== CONTEXT MENU =====
 let ctxTrackId = null;
 
@@ -3826,6 +3980,20 @@ init();
 </div>
 
 <!-- Context menu -->
+<div id="track-menu">
+  <div class="tmenu-item" onclick="tmPlay()">▶ Afspelen</div>
+  <div class="tmenu-item" onclick="tmAddToPlaylist()">🎵 Toevoegen aan playlist</div>
+  <div class="tmenu-sep"></div>
+  <div class="tmenu-item" onclick="tmEditTitle()">✏️ Titel bewerken</div>
+  <div class="tmenu-item" onclick="tmEditArtist()">👤 Artiest bewerken</div>
+  <div class="tmenu-item" onclick="tmEditAlbum()">💿 Album bewerken</div>
+  <div class="tmenu-sep"></div>
+  <div class="tmenu-item" onclick="tmLrcSearch()">🔍 LRC zoeken (automatisch)</div>
+  <div class="tmenu-item" onclick="tmLrcUpload()">📂 LRC uploaden</div>
+  <div class="tmenu-sep"></div>
+  <div class="tmenu-item danger" onclick="tmDelete()">🗑 Verwijderen</div>
+</div>
+
 <div id="ctx-menu">
   <div class="ctx-item" onclick="ctxPlay()">▶ Afspelen</div>
   <div class="ctx-item" onclick="ctxAddToQueue()">+ Wachtrij</div>
