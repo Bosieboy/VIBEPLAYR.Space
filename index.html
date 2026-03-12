@@ -824,8 +824,9 @@
     background: var(--bg2);
     border: 1px solid var(--border);
     border-radius: 12px;
-    padding: 24px;
+    padding: 20px;
     margin-bottom: 20px;
+    overflow: hidden;
   }
   .settings-section-title {
     font-size: 11px;
@@ -840,13 +841,15 @@
   }
   .settings-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
     gap: 20px;
   }
   .settings-item {
     display: flex;
     flex-direction: column;
     gap: 6px;
+    min-width: 0;
+    overflow: hidden;
   }
   .settings-label {
     font-size: 14px;
@@ -869,10 +872,31 @@
     font-size: 13px;
     outline: none;
     cursor: pointer;
-    width: 200px;
+    width: 100%;
+    max-width: 220px;
+    box-sizing: border-box;
     transition: border-color 0.15s;
   }
   .settings-select:focus { border-color: var(--accent); }
+  .settings-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+    min-width: 0;
+  }
+  .settings-slider-row input[type=range] {
+    flex: 1;
+    min-width: 0;
+    max-width: 160px;
+  }
+  .settings-slider-row span {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text2);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
 
   /* Toggle switch */
   .toggle-switch {
@@ -1227,7 +1251,7 @@
         <div class="settings-item">
           <div class="settings-label" data-i18n="lblInterfaceLang">Interface language</div>
           <div class="settings-desc" data-i18n="descInterfaceLang">Choose the display language for VIBEPLAYR Space</div>
-          <select class="settings-select" id="language-select" onchange="setLanguage(this.value)" style="width:220px">
+          <select class="settings-select" id="language-select" onchange="setLanguage(this.value)">
             <option value="en">🇬🇧 English</option>
             <option value="nl">🇳🇱 Nederlands</option>
             <option value="de">🇩🇪 Deutsch</option>
@@ -1288,8 +1312,8 @@
         <div class="settings-item">
           <div class="settings-label" data-i18n="lblSidebarWidth">Sidebar width</div>
           <div class="settings-desc" data-i18n="descSidebarWidth">Width of the left navigation bar</div>
-          <div style="display:flex;align-items:center;gap:12px;margin-top:8px">
-            <input type="range" id="sidebar-width" min="180" max="320" step="10" value="240" oninput="setSidebarWidth(this.value)" style="width:160px">
+          <div class="settings-slider-row">
+            <input type="range" id="sidebar-width" min="180" max="320" step="10" value="240" oninput="setSidebarWidth(this.value)">
             <span id="sidebar-width-val" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text2)">240px</span>
           </div>
         </div>
@@ -1348,8 +1372,8 @@
         <div class="settings-item">
           <div class="settings-label" data-i18n="lblCrossfade">Crossfade</div>
           <div class="settings-desc" data-i18n="descCrossfade">Smooth transition between tracks (seconds)</div>
-          <div style="display:flex;align-items:center;gap:12px;margin-top:8px">
-            <input type="range" id="crossfade-slider" min="0" max="12" step="1" value="0" oninput="setCrossfade(this.value)" style="width:160px">
+          <div class="settings-slider-row">
+            <input type="range" id="crossfade-slider" min="0" max="12" step="1" value="0" oninput="setCrossfade(this.value)">
             <span id="crossfade-val" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text2)">Off</span>
           </div>
         </div>
@@ -1378,16 +1402,16 @@
         <div class="settings-item">
           <div class="settings-label" data-i18n="lblSpeed">Playback speed</div>
           <div class="settings-desc" data-i18n="descSpeed">Playback rate</div>
-          <div style="display:flex;align-items:center;gap:12px;margin-top:8px">
-            <input type="range" id="playback-speed" min="0.5" max="2" step="0.1" value="1" oninput="setPlaybackSpeed(this.value)" style="width:160px">
+          <div class="settings-slider-row">
+            <input type="range" id="playback-speed" min="0.5" max="2" step="0.1" value="1" oninput="setPlaybackSpeed(this.value)">
             <span id="speed-val" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text2)">1.0×</span>
           </div>
         </div>
         <div class="settings-item">
           <div class="settings-label" data-i18n="lblStereo">Stereo width</div>
           <div class="settings-desc" data-i18n="descStereo">Width of the stereo sound</div>
-          <div style="display:flex;align-items:center;gap:12px;margin-top:8px">
-            <input type="range" id="stereo-width" min="0" max="2" step="0.1" value="1" oninput="setStereoWidth(this.value)" style="width:160px">
+          <div class="settings-slider-row">
+            <input type="range" id="stereo-width" min="0" max="2" step="0.1" value="1" oninput="setStereoWidth(this.value)">
             <span id="stereo-val" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text2)">100%</span>
           </div>
         </div>
@@ -1420,16 +1444,16 @@
         <div class="settings-item">
           <div class="settings-label" data-i18n="lblLyricsFontSize">Lyrics font size</div>
           <div class="settings-desc" data-i18n="descLyricsFontSize">Size of text in the lyrics panel</div>
-          <div style="display:flex;align-items:center;gap:12px;margin-top:8px">
-            <input type="range" id="lyrics-fontsize" min="11" max="22" step="1" value="14" oninput="setLyricsFontSize(this.value)" style="width:160px">
+          <div class="settings-slider-row">
+            <input type="range" id="lyrics-fontsize" min="11" max="22" step="1" value="14" oninput="setLyricsFontSize(this.value)">
             <span id="lyrics-fs-val" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text2)">14px</span>
           </div>
         </div>
         <div class="settings-item">
           <div class="settings-label" data-i18n="lblLyricsLineHeight">Lyrics line height</div>
           <div class="settings-desc" data-i18n="descLyricsLineHeight">Space between lines</div>
-          <div style="display:flex;align-items:center;gap:12px;margin-top:8px">
-            <input type="range" id="lyrics-lineheight" min="1.2" max="2.8" step="0.1" value="1.8" oninput="setLyricsLineHeight(this.value)" style="width:160px">
+          <div class="settings-slider-row">
+            <input type="range" id="lyrics-lineheight" min="1.2" max="2.8" step="0.1" value="1.8" oninput="setLyricsLineHeight(this.value)">
             <span id="lyrics-lh-val" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text2)">1.8</span>
           </div>
         </div>
@@ -1497,7 +1521,7 @@
         </div>
         <div class="settings-item">
           <div class="settings-label">Backup als ZIP</div>
-          <div class="settings-desc">Exporteer alle nummers + LRC + playlists als ZIP bestand</div>
+          <div class="settings-desc">Export all tracks + LRC + playlists as ZIP file</div>
           <button class="settings-action-btn" onclick="exportAsZip()" id="zip-export-btn">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Exporteer ZIP
@@ -1834,7 +1858,7 @@ async function handleFileImport(input) {
       setTimeout(() => { overlay.style.display = 'none'; }, 500);
     }
     await loadTracks();
-    showToast(`${count} nummer${count > 1 ? 's' : ''} geïmporteerd 🎵`);
+    showToast(`${count} track${count > 1 ? 's' : ''} imported 🎵`);
   }
   if (lrcFiles.length > 0) await autoMatchLrcFiles(lrcFiles);
 }
@@ -2408,7 +2432,7 @@ function qDrop(e, dropIndex) {
   e.preventDefault();
   document.querySelectorAll('.queue-row').forEach(r => r.classList.remove('drag-over-top','drag-over-bottom','dragging'));
   if (qDragIdx === -1 || qDragIdx === dropIndex) return;
-  // Bewaar huidig nummer
+  // Save current track
   const playing = currentQueue[currentIndex];
   const rect = e.currentTarget.getBoundingClientRect();
   let target = dropIndex;
@@ -2508,7 +2532,7 @@ function openPlaylist(id) {
 
   document.getElementById('playlist-detail-name').textContent = pl.name;
   const count = pl.tracks.length;
-  document.getElementById('playlist-detail-info').textContent = `${count} nummer${count !== 1 ? 's' : ''}`;
+  document.getElementById('playlist-detail-info').textContent = `${count} track${count !== 1 ? 's' : ''}`;
   // Cover
   const coverEl = document.getElementById('playlist-cover');
   const plCover = _getCover('playlist', id);
@@ -2720,11 +2744,15 @@ async function playCurrentTrack() {
   const track = currentQueue[currentIndex];
   if (!track) return;
 
+  // Reset crossfade state for new track
+  if (crossfadeTimeout && crossfadeTimeout !== 'pending') clearTimeout(crossfadeTimeout);
+  crossfadeTimeout = null;
+
   const fullTrack = await dbGet('tracks', track.id);
-  if (!fullTrack) { showToast('Track niet gevonden'); return; }
+  if (!fullTrack) { showToast('Track not found'); return; }
 
   const url = await getAudioUrl(fullTrack);
-  if (!url) { showToast('Importeer dit nummer opnieuw'); return; }
+  if (!url) { showToast('Re-import this track'); return; }
 
   audio.pause();
   audio.src = '';
@@ -2736,7 +2764,7 @@ async function playCurrentTrack() {
     await audio.play();
     isPlaying = true;
   } catch(err) {
-    showToast('Afspelen mislukt: ' + err.message);
+    showToast('Playback failed: ' + err.message);
     return;
   }
 
@@ -2808,14 +2836,14 @@ function prevTrack() {
 function toggleShuffle() {
   isShuffle = !isShuffle;
   document.getElementById('btn-shuffle').classList.toggle('active', isShuffle);
-  showToast(isShuffle ? 'Shuffle aan 🔀' : 'Shuffle uit');
+  showToast(isShuffle ? 'Shuffle on 🔀' : 'Shuffle off');
 }
 
 function toggleRepeat() {
   repeatMode = (repeatMode + 1) % 3;
   const btn = document.getElementById('btn-repeat');
   btn.classList.toggle('active', repeatMode > 0);
-  const msgs = ['Herhaling uit', 'Alles herhalen 🔁', 'Eén herhalen 🔂'];
+  const msgs = ['Repeat off', 'Repeat all 🔁', 'Repeat one 🔂'];
   showToast(msgs[repeatMode]);
 }
 
@@ -2849,6 +2877,15 @@ audio.addEventListener('timeupdate', () => {
     if (fsProg) { fsProg.value = pct; fsProg.style.setProperty('--val', pct + '%'); }
     const c = document.getElementById('fs-time-cur'); if (c) c.textContent = formatTime(audio.currentTime);
     const t = document.getElementById('fs-time-tot'); if (t) t.textContent = totalEl.textContent;
+  }
+  // Crossfade trigger: start fading out X seconds before end
+  const cf = parseFloat(appSettings.crossfade) || 0;
+  if (cf > 0 && audio.duration && !crossfadeTimeout) {
+    const remaining = audio.duration - audio.currentTime;
+    if (remaining <= cf && remaining > 0) {
+      crossfadeTimeout = 'pending';
+      _startCrossfade(() => nextTrack());
+    }
   }
 });
 
@@ -3314,12 +3351,12 @@ uploadZone.addEventListener('drop', async e => {
     document.getElementById('import-progress-bar').style.width = '100%';
     setTimeout(() => { overlay.style.display = 'none'; }, 500);
     await loadTracks();
-    showToast(`${count} nummer${count > 1 ? 's' : ''} geïmporteerd 🎵`);
+    showToast(`${count} track${count > 1 ? 's' : ''} imported 🎵`);
   } else if (audioFiles.length > 0) {
     let count = 0;
     for (const file of audioFiles) { await importAudioFile(file); count++; }
     await loadTracks();
-    showToast(`${count} nummer${count > 1 ? 's' : ''} geïmporteerd 🎵`);
+    showToast(`${count} track${count > 1 ? 's' : ''} imported 🎵`);
   }
   if (lrcFiles.length > 0) await autoMatchLrcFiles(lrcFiles);
 });
@@ -3341,7 +3378,7 @@ document.body.addEventListener('drop', async e => {
   }
   if (count > 0) {
     await loadTracks();
-    showToast(`${count} nummer${count > 1 ? 's' : ''} geïmporteerd 🎵`);
+    showToast(`${count} track${count > 1 ? 's' : ''} imported 🎵`);
   }
 });
 
@@ -3672,7 +3709,7 @@ function setMonoMode(on) {
   showToast(on ? 'Mono mode on' : 'Stereo mode on');
 }
 
-// FADE-IN — wordt toegepast bij start van elk nummer
+// FADE-IN — applied at start of each track
 function _applyFadeIn() {
   if (!appSettings.fadeIn || !audioCtx || !gainNode) return;
   gainNode.gain.cancelScheduledValues(audioCtx.currentTime);
@@ -3689,9 +3726,27 @@ audio.addEventListener('play', () => {
 
 // CROSSFADE
 let crossfadeTimeout = null;
+let crossfadeRAF = null;
+
 function setCrossfade(val) {
   document.getElementById('crossfade-val').textContent = val == 0 ? 'Off' : val + 's';
   saveSetting('crossfade', parseFloat(val));
+}
+
+function _startCrossfade(onComplete) {
+  const secs = parseFloat(appSettings.crossfade) || 0;
+  if (!secs || !audioCtx || !gainNode) { onComplete(); return; }
+  const start = audioCtx.currentTime;
+  gainNode.gain.cancelScheduledValues(start);
+  gainNode.gain.setValueAtTime(gainNode.gain.value, start);
+  gainNode.gain.linearRampToValueAtTime(0, start + secs);
+  crossfadeTimeout = setTimeout(() => {
+    gainNode.gain.cancelScheduledValues(audioCtx.currentTime);
+    gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+    onComplete();
+    // Fade back in
+    gainNode.gain.linearRampToValueAtTime(1, audioCtx.currentTime + secs);
+  }, secs * 1000);
 }
 
 // SHOW REMAINING TIME
@@ -3760,7 +3815,7 @@ function exportLibrary() {
   const a = document.createElement('a');
   a.href = url; a.download = 'vibeplayr-library.json'; a.click();
   URL.revokeObjectURL(url);
-  showToast('Library geëxporteerd 📁');
+  showToast('Library exported 📁');
 }
 
 // CLEAR LIBRARY
@@ -4287,7 +4342,7 @@ async function exportAsZip() {
   bar.style.width = '100%';
   lbl.textContent = 'Klaar!';
   setTimeout(() => { prog.style.display = 'none'; btn.disabled = false; }, 2000);
-  showToast('ZIP geëxporteerd 📦');
+  showToast('ZIP exported 📦');
 }
 
 // ===== ZIP IMPORT =====
