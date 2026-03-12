@@ -985,7 +985,7 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             <span data-i18n="importBtn">Import</span>
           </div>
-          <input type="file" id="file-input" multiple accept="audio/*" style="display:none" onchange="handleFileImport(this)">
+          <input type="file" id="file-input" multiple accept="audio/*,.lrc" style="display:none" onchange="handleFileImport(this)">
         </label>
       </div>
     </div>
@@ -1067,6 +1067,7 @@
         <div style="display:flex;gap:8px;margin-top:16px;align-items:center">
           <button class="playlist-play-btn" onclick="playCurrentPlaylist()" data-i18n="playBtn">▶ Play</button>
           <button onclick="deleteCurrentPlaylist()" style="background:none;border:1px solid var(--border);border-radius:40px;color:var(--text3);padding:10px 16px;font-family:'Syne',sans-serif;font-size:13px;cursor:pointer;font-weight:600;transition:all 0.15s" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'" data-i18n="deleteBtn">Delete</button>
+          <button onclick="openCoverEditor('playlist', currentPlaylistId)" style="background:none;border:1px solid var(--border);border-radius:40px;color:var(--text3);padding:10px 16px;font-family:'Syne',sans-serif;font-size:13px;cursor:pointer;font-weight:600;transition:all 0.15s" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text3)'">🎨 Cover</button>
         </div>
       </div>
     </div>
@@ -1364,6 +1365,33 @@
             <span data-i18n="exportBtn">Export</span>
           </button>
         </div>
+        <div class="settings-item">
+          <div class="settings-label">Backup als ZIP</div>
+          <div class="settings-desc">Exporteer alle nummers + LRC + playlists als ZIP bestand</div>
+          <button class="settings-action-btn" onclick="exportAsZip()" id="zip-export-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exporteer ZIP
+          </button>
+          <div id="zip-export-progress" style="display:none;margin-top:8px">
+            <div style="font-size:11px;color:var(--text2);margin-bottom:4px" id="zip-export-label">Bezig...</div>
+            <div style="background:var(--border);border-radius:4px;height:4px"><div id="zip-export-bar" style="height:100%;background:var(--accent);border-radius:4px;width:0%;transition:width 0.2s"></div></div>
+          </div>
+        </div>
+        <div class="settings-item">
+          <div class="settings-label">Herstel vanuit ZIP</div>
+          <div class="settings-desc">Importeer een eerder gemaakte VIBEPLAYR backup ZIP</div>
+          <label style="cursor:pointer">
+            <div class="settings-action-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Importeer ZIP
+            </div>
+            <input type="file" accept=".zip" style="display:none" onchange="importFromZip(this)">
+          </label>
+          <div id="zip-import-progress" style="display:none;margin-top:8px">
+            <div style="font-size:11px;color:var(--text2);margin-bottom:4px" id="zip-import-label">Bezig...</div>
+            <div style="background:var(--border);border-radius:4px;height:4px"><div id="zip-import-bar" style="height:100%;background:var(--accent);border-radius:4px;width:0%;transition:width 0.2s"></div></div>
+          </div>
+        </div>
         <div class="settings-item settings-item-danger">
           <div class="settings-label" data-i18n="lblClear">Clear library</div>
           <div class="settings-desc" data-i18n="descClear">Permanently delete all tracks and playlists</div>
@@ -1566,12 +1594,12 @@ function initDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open('vibeplayr-music', 2);
     req.onupgradeneeded = e => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains('tracks')) {
-        db.createObjectStore('tracks', { keyPath: 'id' });
+      const dbUpg = e.target.result;
+      if (!dbUpg.objectStoreNames.contains('tracks')) {
+        dbUpg.createObjectStore('tracks', { keyPath: 'id' });
       }
-      if (!db.objectStoreNames.contains('playlists')) {
-        db.createObjectStore('playlists', { keyPath: 'id' });
+      if (!dbUpg.objectStoreNames.contains('playlists')) {
+        dbUpg.createObjectStore('playlists', { keyPath: 'id' });
       }
     };
     req.onsuccess = e => { db = e.target.result; resolve(); };
@@ -1618,17 +1646,30 @@ function dbDelete(store, key) {
 // ===== FILE IMPORT =====
 async function handleFileImport(input) {
   const files = Array.from(input.files);
-  let count = 0;
-  for (const file of files) {
-    if (!file.type.startsWith('audio/') && !file.name.match(/\.(mp3|wav|flac|ogg|aac|m4a|opus|weba)$/i)) continue;
-    await importAudioFile(file);
-    count++;
-  }
+  const audioFiles = files.filter(f => f.type.startsWith('audio/') || f.name.match(/\.(mp3|wav|flac|ogg|aac|m4a|opus|weba)$/i));
+  const lrcFiles = files.filter(f => f.name.match(/\.lrc$/i));
   input.value = '';
-  if (count > 0) {
+
+  const overlay = document.getElementById('import-progress-overlay');
+  if (audioFiles.length > 0) {
+    if (overlay) overlay.style.display = 'flex';
+    let count = 0;
+    for (const file of audioFiles) {
+      if (overlay) {
+        document.getElementById('import-progress-current').textContent = file.name;
+        document.getElementById('import-progress-bar').style.width = ((count/audioFiles.length)*100)+'%';
+      }
+      await importAudioFile(file);
+      count++;
+    }
+    if (overlay) {
+      document.getElementById('import-progress-bar').style.width = '100%';
+      setTimeout(() => { overlay.style.display = 'none'; }, 500);
+    }
     await loadTracks();
     showToast(`${count} nummer${count > 1 ? 's' : ''} geïmporteerd 🎵`);
   }
+  if (lrcFiles.length > 0) await autoMatchLrcFiles(lrcFiles);
 }
 
 async function importAudioFile(file) {
@@ -1636,28 +1677,36 @@ async function importAudioFile(file) {
   const arrayBuffer = await file.arrayBuffer();
   const base64 = arrayBufferToBase64(arrayBuffer);
   const meta = parseFileMeta(file.name);
-
-  // Try to get duration
-  let duration = 0;
-  try {
-    const blob = new Blob([arrayBuffer], { type: file.type });
-    const url = URL.createObjectURL(blob);
-    duration = await getAudioDuration(url);
-    URL.revokeObjectURL(url);
-  } catch(e) {}
+  const mimeType = (file.type && file.type !== 'application/octet-stream') ? file.type : (() => {
+    const ext = file.name.split('.').pop().toLowerCase();
+    return {'mp3':'audio/mpeg','m4a':'audio/mp4','wav':'audio/wav','flac':'audio/flac','ogg':'audio/ogg','aac':'audio/aac','webm':'audio/webm'}[ext] || 'audio/mpeg';
+  })();
 
   const track = {
     id,
     title: meta.title,
     artist: meta.artist || 'Unknown',
     album: meta.album || 'Unknown album',
-    duration,
-    mimeType: file.type || 'audio/mpeg',
+    duration: 0,
+    mimeType,
     data: base64,
     lrc: null,
     addedAt: Date.now()
   };
   await dbPut('tracks', track);
+
+  // Bereken duur op de achtergrond (blokkeert import niet)
+  try {
+    const blob = new Blob([arrayBuffer], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    getAudioDuration(url).then(async dur => {
+      URL.revokeObjectURL(url);
+      if (dur > 0) {
+        track.duration = dur;
+        await dbPut('tracks', track);
+      }
+    });
+  } catch(e) {}
 }
 
 function arrayBufferToBase64(buffer) {
@@ -1690,10 +1739,12 @@ function parseFileMeta(filename) {
 
 function getAudioDuration(url) {
   return new Promise((res) => {
-    const a = new Audio(url);
-    a.onloadedmetadata = () => res(a.duration);
-    a.onerror = () => res(0);
-    setTimeout(() => res(0), 5000);
+    const a = new Audio();
+    a.preload = 'metadata';
+    a.onloadedmetadata = () => { res(a.duration || 0); a.src = ''; };
+    a.onerror = () => { res(0); };
+    setTimeout(() => { res(0); a.src = ''; }, 3000);
+    a.src = url;
   });
 }
 
@@ -1860,6 +1911,17 @@ function openPlaylist(id) {
   document.getElementById('playlist-detail-name').textContent = pl.name;
   const count = pl.tracks.length;
   document.getElementById('playlist-detail-info').textContent = `${count} nummer${count !== 1 ? 's' : ''}`;
+  // Cover
+  const coverEl = document.getElementById('playlist-cover');
+  const plCover = _getCover('playlist', id);
+  if (plCover) {
+    coverEl.innerHTML = `<img src="${plCover}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">`;
+  } else {
+    coverEl.innerHTML = '🎵';
+  }
+  coverEl.onclick = () => openCoverEditor('playlist', id);
+  coverEl.style.cursor = 'pointer';
+  coverEl.title = 'Klik om cover in te stellen';
 
   const plTracks = pl.tracks.map(tid => allTracks.find(t => t.id === tid)).filter(Boolean);
   const tbody = document.getElementById('playlist-track-list');
@@ -2189,11 +2251,21 @@ audio.addEventListener('pause', () => {
   const q = document.getElementById('fs-icon-pause'); if (q) q.style.display = 'none';
 });
 
-// ===== DELETE TRACK =====
+// ===== DELETE TRACK (met undo) =====
+let _undoBuffer = null;
+let _undoTimer = null;
+
 async function deleteTrack(id) {
-  if (!confirm('Dit nummer verwijderen?')) return;
+  const track = await dbGet('tracks', id);
+  if (!track) return;
+  // Sla playlists op voor undo
+  const affectedPlaylists = {};
+  for (const pl of Object.values(playlists)) {
+    if (pl.tracks.includes(id)) affectedPlaylists[pl.id] = [...pl.tracks];
+  }
+  _undoBuffer = { track, affectedPlaylists };
+
   await dbDelete('tracks', id);
-  // Remove from all playlists
   for (const pl of Object.values(playlists)) {
     const before = pl.tracks.length;
     pl.tracks = pl.tracks.filter(tid => tid !== id);
@@ -2201,7 +2273,35 @@ async function deleteTrack(id) {
   }
   await loadTracks();
   await loadPlaylists();
-  showToast('Track deleted');
+  _showUndoToast('Track verwijderd');
+}
+
+function _showUndoToast(msg) {
+  const t = document.getElementById('toast');
+  t.innerHTML = msg + ' <button onclick="_undoDelete()" style="background:rgba(255,255,255,0.2);border:none;color:white;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:12px;margin-left:8px">↩ Ongedaan</button>';
+  t.classList.add('show');
+  clearTimeout(_undoTimer);
+  _undoTimer = setTimeout(() => {
+    t.classList.remove('show');
+    _undoBuffer = null;
+  }, 5000);
+}
+
+async function _undoDelete() {
+  if (!_undoBuffer) return;
+  clearTimeout(_undoTimer);
+  const { track, affectedPlaylists } = _undoBuffer;
+  _undoBuffer = null;
+  await dbPut('tracks', track);
+  for (const [plId, tracks] of Object.entries(affectedPlaylists)) {
+    if (playlists[plId]) {
+      playlists[plId].tracks = tracks;
+      await dbPut('playlists', playlists[plId]);
+    }
+  }
+  await loadTracks();
+  await loadPlaylists();
+  showToast('Teruggeplaatst ↩');
 }
 
 // ===== VIEW SWITCHING =====
@@ -2311,17 +2411,31 @@ uploadZone.addEventListener('drop', async e => {
   e.preventDefault();
   uploadZone.classList.remove('drag-over');
   const files = Array.from(e.dataTransfer.files);
-  let count = 0;
-  for (const file of files) {
-    if (file.type.startsWith('audio/') || file.name.match(/\.(mp3|wav|flac|ogg|aac|m4a|opus|weba)$/i)) {
+  const audioFiles = files.filter(f => f.type.startsWith('audio/') || f.name.match(/\.(mp3|wav|flac|ogg|aac|m4a|opus|weba)$/i));
+  const lrcFiles = files.filter(f => f.name.match(/\.lrc$/i));
+
+  // Toon progress overlay
+  const overlay = document.getElementById('import-progress-overlay');
+  if (overlay && audioFiles.length > 0) {
+    overlay.style.display = 'flex';
+    let count = 0;
+    for (const file of audioFiles) {
+      document.getElementById('import-progress-current').textContent = file.name;
+      document.getElementById('import-progress-bar').style.width = ((count/audioFiles.length)*100)+'%';
       await importAudioFile(file);
       count++;
     }
-  }
-  if (count > 0) {
+    document.getElementById('import-progress-bar').style.width = '100%';
+    setTimeout(() => { overlay.style.display = 'none'; }, 500);
+    await loadTracks();
+    showToast(`${count} nummer${count > 1 ? 's' : ''} geïmporteerd 🎵`);
+  } else if (audioFiles.length > 0) {
+    let count = 0;
+    for (const file of audioFiles) { await importAudioFile(file); count++; }
     await loadTracks();
     showToast(`${count} nummer${count > 1 ? 's' : ''} geïmporteerd 🎵`);
   }
+  if (lrcFiles.length > 0) await autoMatchLrcFiles(lrcFiles);
 });
 
 document.addEventListener('dragover', e => e.preventDefault());
@@ -3087,6 +3201,390 @@ function setDateFormat(fmt, btn, silent) {
 }
 
 // ===== INIT =====
+
+// ===== ZIP EXPORT =====
+async function exportAsZip() {
+  const btn = document.getElementById('zip-export-btn');
+  const prog = document.getElementById('zip-export-progress');
+  const bar = document.getElementById('zip-export-bar');
+  const lbl = document.getElementById('zip-export-label');
+  btn.disabled = true;
+  prog.style.display = 'block';
+  lbl.textContent = 'JSZip laden...';
+  bar.style.width = '5%';
+
+  if (!window.JSZip) {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
+
+  const zip = new JSZip();
+  const tracksFolder = zip.folder('tracks');
+  const lrcFolder = zip.folder('lrc');
+  const manifest = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    tracks: [],
+    playlists: Object.values(playlists)
+  };
+
+  const allFull = await dbGetAll('tracks');
+  let done = 0;
+  for (const track of allFull) {
+    lbl.textContent = `${done + 1} / ${allFull.length}: ${track.title}`;
+    bar.style.width = (5 + (done / allFull.length) * 80) + '%';
+
+    const extMap = {'audio/mpeg':'mp3','audio/mp4':'m4a','audio/wav':'wav','audio/flac':'flac','audio/ogg':'ogg','audio/aac':'aac','audio/webm':'webm'};
+    const ext = extMap[track.mimeType] || 'mp3';
+    const fname = track.id + '.' + ext;
+
+    if (track.data) {
+      const bin = atob(track.data);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      tracksFolder.file(fname, bytes);
+    }
+    if (track.lrc) lrcFolder.file(track.id + '.lrc', track.lrc);
+
+    manifest.tracks.push({
+      id: track.id, title: track.title, artist: track.artist,
+      album: track.album, duration: track.duration,
+      mimeType: track.mimeType, filename: fname,
+      hasLrc: !!track.lrc, addedAt: track.addedAt
+    });
+    done++;
+  }
+
+  zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+  bar.style.width = '95%';
+  lbl.textContent = 'ZIP maken...';
+
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const date = new Date().toISOString().slice(0, 10);
+  a.href = url; a.download = `vibeplayr-backup-${date}.zip`; a.click();
+  URL.revokeObjectURL(url);
+
+  bar.style.width = '100%';
+  lbl.textContent = 'Klaar!';
+  setTimeout(() => { prog.style.display = 'none'; btn.disabled = false; }, 2000);
+  showToast('ZIP geëxporteerd 📦');
+}
+
+// ===== ZIP IMPORT =====
+async function importFromZip(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+
+  const prog = document.getElementById('zip-import-progress');
+  const bar = document.getElementById('zip-import-bar');
+  const lbl = document.getElementById('zip-import-label');
+  prog.style.display = 'block';
+  lbl.textContent = 'JSZip laden...';
+  bar.style.width = '5%';
+
+  if (!window.JSZip) {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      s.onload = res; s.onerror = rej;
+      document.head.appendChild(s);
+    });
+  }
+
+  const arrayBuffer = await file.arrayBuffer();
+  const zip = await JSZip.loadAsync(arrayBuffer);
+  const manifestFile = zip.file('manifest.json');
+  if (!manifestFile) { showToast('Geen geldige VIBEPLAYR ZIP'); prog.style.display = 'none'; return; }
+
+  const manifest = JSON.parse(await manifestFile.async('string'));
+  const tracks = manifest.tracks || [];
+  let done = 0;
+
+  for (const meta of tracks) {
+    lbl.textContent = `${done + 1} / ${tracks.length}: ${meta.title}`;
+    bar.style.width = (10 + (done / tracks.length) * 75) + '%';
+
+    const existing = await dbGet('tracks', meta.id).catch(() => null);
+    if (existing) { done++; continue; }
+
+    const audioFile = zip.file('tracks/' + meta.filename);
+    if (!audioFile) { done++; continue; }
+
+    const bytes = await audioFile.async('uint8array');
+    const bin = Array.from(bytes).map(b => String.fromCharCode(b)).join('');
+    const base64 = btoa(bin);
+
+    let lrcText = null;
+    const lrcFile = zip.file('lrc/' + meta.id + '.lrc');
+    if (lrcFile) lrcText = await lrcFile.async('string');
+
+    await dbPut('tracks', {
+      id: meta.id, title: meta.title, artist: meta.artist,
+      album: meta.album, duration: meta.duration,
+      mimeType: meta.mimeType || 'audio/mpeg',
+      data: base64, lrc: lrcText, addedAt: meta.addedAt || Date.now()
+    });
+    done++;
+  }
+
+  // Herstel playlists
+  bar.style.width = '90%';
+  lbl.textContent = 'Playlists herstellen...';
+  for (const pl of (manifest.playlists || [])) {
+    const existing = await dbGet('playlists', pl.id).catch(() => null);
+    if (!existing) await dbPut('playlists', pl);
+  }
+
+  bar.style.width = '100%';
+  lbl.textContent = 'Klaar!';
+  await loadTracks();
+  await loadPlaylists();
+  setTimeout(() => { prog.style.display = 'none'; }, 2000);
+  showToast(`${done} tracks hersteld uit ZIP 📦`);
+}
+
+// ===== LRC AUTOMATISCH KOPPELEN =====
+function _lrcFuzzyScore(a, b) {
+  a = a.toLowerCase().replace(/[^a-z0-9]/g, '');
+  b = b.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (a === b) return 100;
+  if (a.includes(b) || b.includes(a)) return 80;
+  let matches = 0;
+  for (const ch of a) if (b.includes(ch)) matches++;
+  return Math.round((matches / Math.max(a.length, b.length)) * 60);
+}
+
+function _matchLrcToTrack(lrcName) {
+  const base = lrcName.replace(/\.lrc$/i, '');
+  const parts = base.split(' - ');
+  const lrcArtist = parts.length >= 2 ? parts[0].trim() : '';
+  const lrcTitle = parts.length >= 2 ? parts.slice(1).join(' - ').trim() : base;
+
+  let best = null, bestScore = 0;
+  for (const t of allTracks) {
+    if (t.lrc) continue;
+    const titleScore = _lrcFuzzyScore(lrcTitle, t.title);
+    const artistScore = lrcArtist ? _lrcFuzzyScore(lrcArtist, t.artist) : 50;
+    const total = titleScore * 0.6 + artistScore * 0.4;
+    if (total > bestScore) { bestScore = total; best = t; }
+  }
+  return { track: best, score: Math.round(bestScore) };
+}
+
+async function autoMatchLrcFiles(files) {
+  let matched = 0;
+  for (const file of files) {
+    if (!file.name.match(/\.lrc$/i)) continue;
+    const text = await file.text();
+    const { track, score } = _matchLrcToTrack(file.name);
+    if (track && score >= 55) {
+      track.lrc = text;
+      await dbPut('tracks', track);
+      matched++;
+    }
+  }
+  if (matched > 0) {
+    await loadTracks();
+    showToast(`${matched} LRC bestand${matched > 1 ? 'en' : ''} gekoppeld 🎤`);
+  } else {
+    showToast('Geen passende nummers gevonden voor LRC');
+  }
+}
+
+// ===== COVER EDITOR =====
+let _coverTarget = null; // { type: 'playlist'|'album', id: string }
+let _pixelSize = 16;
+let _pixelData = [];
+let _pixelDrawing = false;
+let _pixelColor = '#7c3aed';
+let _pixelHistory = [];
+
+function openCoverEditor(type, id) {
+  _coverTarget = { type, id };
+  document.getElementById('modal-cover-editor').classList.add('open');
+  _initPixelCanvas(16);
+  document.querySelectorAll('.cover-tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.cover-tab-btn[data-tab="pixel"]').classList.add('active');
+  document.querySelectorAll('.cover-tab').forEach(t => t.style.display = 'none');
+  document.getElementById('cover-tab-pixel').style.display = 'block';
+}
+
+function _switchCoverTab(tab) {
+  document.querySelectorAll('.cover-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.cover-tab').forEach(t => t.style.display = 'none');
+  document.getElementById('cover-tab-' + tab).style.display = 'block';
+}
+
+function _initPixelCanvas(size) {
+  _pixelSize = size;
+  _pixelData = new Array(size * size).fill('#1a1025');
+  _pixelHistory = [];
+  _drawPixelCanvas();
+}
+
+function _drawPixelCanvas() {
+  const canvas = document.getElementById('pixel-canvas');
+  if (!canvas) return;
+  const cellSize = Math.floor(256 / _pixelSize);
+  canvas.width = canvas.height = cellSize * _pixelSize;
+  const ctx = canvas.getContext('2d');
+  for (let i = 0; i < _pixelSize; i++) {
+    for (let j = 0; j < _pixelSize; j++) {
+      ctx.fillStyle = _pixelData[i * _pixelSize + j];
+      ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
+      ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+      ctx.strokeRect(j * cellSize, i * cellSize, cellSize, cellSize);
+    }
+  }
+  _updatePixelPreview();
+}
+
+function _updatePixelPreview() {
+  const prev = document.getElementById('pixel-preview');
+  if (!prev) return;
+  const cellSize = Math.floor(64 / _pixelSize);
+  prev.width = prev.height = cellSize * _pixelSize;
+  const ctx = prev.getContext('2d');
+  for (let i = 0; i < _pixelSize; i++) {
+    for (let j = 0; j < _pixelSize; j++) {
+      ctx.fillStyle = _pixelData[i * _pixelSize + j];
+      ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
+    }
+  }
+}
+
+function _pixelCanvasClick(e) {
+  const canvas = document.getElementById('pixel-canvas');
+  const rect = canvas.getBoundingClientRect();
+  const cellSize = canvas.width / _pixelSize;
+  const x = Math.floor((e.clientX - rect.left) / (rect.width / _pixelSize));
+  const y = Math.floor((e.clientY - rect.top) / (rect.height / _pixelSize));
+  if (x < 0 || x >= _pixelSize || y < 0 || y >= _pixelSize) return;
+  _pixelHistory.push([..._pixelData]);
+  if (_pixelHistory.length > 20) _pixelHistory.shift();
+  _pixelData[y * _pixelSize + x] = _pixelColor;
+  _drawPixelCanvas();
+}
+
+function _pixelCanvasDraw(e) {
+  if (!_pixelDrawing) return;
+  _pixelCanvasClick(e);
+}
+
+function _undoPixel() {
+  if (_pixelHistory.length === 0) return;
+  _pixelData = _pixelHistory.pop();
+  _drawPixelCanvas();
+}
+
+function _clearPixelCanvas() {
+  _pixelHistory.push([..._pixelData]);
+  _pixelData = new Array(_pixelSize * _pixelSize).fill('#1a1025');
+  _drawPixelCanvas();
+}
+
+function _pixelCanvasToDataUrl() {
+  const canvas = document.getElementById('pixel-canvas');
+  return canvas.toDataURL('image/png');
+}
+
+function _handleCoverFileInput(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('cover-upload-preview');
+    img.src = e.target.result;
+    img.style.display = 'block';
+    img.dataset.dataUrl = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+const _EMOJIS = ['🎵','🎶','🎸','🎹','🎺','🎻','🥁','🎷','🎤','🎧','🎼','🎙','🎚','🎛','📻','🎠','🌟','⚡','🔥','🌊','🌈','🦋','🌺','🍎','🌙','☀️','🏔','🌴','🦄','🐉','👾','🤖','💎','🎯','🎲','🃏','🎭','🎨','🎪','🚀','🌌','💫','🎆','🌸','🍄','🦊','🐺','🦁','🐯','🦅','🦋'];
+const _EMOJI_BGS = ['#1a1025','#0f172a','#1e293b','#134e4a','#1c1917','#3b0764','#450a0a','#1a2e05','#0c1a3d','#2d1b69'];
+
+function _initEmojiGrid() {
+  const grid = document.getElementById('emoji-grid');
+  if (!grid) return;
+  grid.innerHTML = _EMOJIS.map(e =>
+    `<div class="emoji-item" onclick="_selectEmoji('${e}')" style="font-size:28px;cursor:pointer;padding:6px;border-radius:8px;text-align:center;transition:background 0.1s" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background=''">${e}</div>`
+  ).join('');
+
+  const bgDiv = document.getElementById('emoji-bg-grid');
+  bgDiv.innerHTML = _EMOJI_BGS.map(c =>
+    `<div onclick="_selectEmojiBg('${c}')" style="width:28px;height:28px;border-radius:50%;background:${c};cursor:pointer;border:2px solid transparent;transition:border-color 0.1s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='transparent'"></div>`
+  ).join('');
+}
+
+let _selectedEmoji = '🎵';
+let _selectedEmojiBg = '#1a1025';
+
+function _selectEmoji(e) {
+  _selectedEmoji = e;
+  document.getElementById('emoji-preview-text').textContent = e;
+}
+
+function _selectEmojiBg(c) {
+  _selectedEmojiBg = c;
+  document.getElementById('emoji-preview-box').style.background = c;
+}
+
+function _emojiToDataUrl() {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = _selectedEmojiBg;
+  ctx.fillRect(0, 0, 128, 128);
+  ctx.font = '80px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(_selectedEmoji, 64, 68);
+  return canvas.toDataURL('image/png');
+}
+
+async function saveCoverEditor() {
+  const activeTab = document.querySelector('.cover-tab-btn.active')?.dataset.tab;
+  let dataUrl;
+  if (activeTab === 'pixel') {
+    dataUrl = _pixelCanvasToDataUrl();
+  } else if (activeTab === 'upload') {
+    const img = document.getElementById('cover-upload-preview');
+    dataUrl = img.dataset.dataUrl;
+    if (!dataUrl) { showToast('Geen afbeelding geselecteerd'); return; }
+  } else {
+    dataUrl = _emojiToDataUrl();
+  }
+
+  if (!_coverTarget) return;
+  const key = 'vibeplayr-covers';
+  const covers = JSON.parse(localStorage.getItem(key) || '{}');
+  covers[_coverTarget.type + ':' + _coverTarget.id] = dataUrl;
+  localStorage.setItem(key, JSON.stringify(covers));
+
+  document.getElementById('modal-cover-editor').classList.remove('open');
+  if (_coverTarget.type === 'playlist') {
+    openPlaylist(_coverTarget.id);
+  } else {
+    renderAlbums();
+  }
+  showToast('Cover opgeslagen 🎨');
+}
+
+function _getCover(type, id) {
+  try {
+    const covers = JSON.parse(localStorage.getItem('vibeplayr-covers') || '{}');
+    return covers[type + ':' + id] || null;
+  } catch(e) { return null; }
+}
+
 async function init() {
   await initDB();
   await loadTracks();
@@ -3096,5 +3594,98 @@ async function init() {
 
 init();
 </script>
+
+<!-- IMPORT PROGRESS OVERLAY -->
+<div id="import-progress-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--bg2);border-radius:16px;padding:32px 40px;min-width:300px;text-align:center">
+    <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px">Importeren...</div>
+    <div id="import-progress-current" style="font-size:12px;color:var(--text2);margin-bottom:16px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">-</div>
+    <div style="background:var(--border);border-radius:6px;height:6px"><div id="import-progress-bar" style="height:100%;background:var(--accent);border-radius:6px;width:0%;transition:width 0.2s"></div></div>
+  </div>
+</div>
+
+<!-- COVER EDITOR MODAL -->
+<div class="modal-overlay" id="modal-cover-editor">
+  <div class="modal" style="max-width:480px;width:90%">
+    <div class="modal-title">🎨 Cover bewerken</div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button class="cover-tab-btn active" data-tab="pixel" onclick="_switchCoverTab('pixel')" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);cursor:pointer;font-size:12px">🖍 Pixel Art</button>
+      <button class="cover-tab-btn" data-tab="upload" onclick="_switchCoverTab('upload')" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);cursor:pointer;font-size:12px">📁 Upload</button>
+      <button class="cover-tab-btn" data-tab="emoji" onclick="_switchCoverTab('emoji');_initEmojiGrid()" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);cursor:pointer;font-size:12px">😀 Emoji</button>
+    </div>
+
+    <!-- Pixel Art Tab -->
+    <div id="cover-tab-pixel" class="cover-tab">
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <div>
+          <canvas id="pixel-canvas" width="256" height="256" style="border-radius:8px;cursor:crosshair;image-rendering:pixelated;border:1px solid var(--border)"
+            onclick="_pixelCanvasClick(event)"
+            onmousedown="_pixelDrawing=true;_pixelCanvasClick(event)"
+            onmousemove="_pixelCanvasDraw(event)"
+            onmouseup="_pixelDrawing=false"
+            onmouseleave="_pixelDrawing=false">
+          </canvas>
+        </div>
+        <div style="flex:1">
+          <div style="margin-bottom:8px">
+            <div style="font-size:11px;color:var(--text2);margin-bottom:4px">Kleur</div>
+            <input type="color" value="#7c3aed" oninput="_pixelColor=this.value" style="width:100%;height:32px;border:none;border-radius:6px;cursor:pointer">
+          </div>
+          <div style="margin-bottom:8px">
+            <div style="font-size:11px;color:var(--text2);margin-bottom:4px">Rastergrootte</div>
+            <select onchange="_initPixelCanvas(parseInt(this.value))" style="width:100%;padding:6px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text)">
+              <option value="8">8×8</option>
+              <option value="16" selected>16×16</option>
+              <option value="32">32×32</option>
+            </select>
+          </div>
+          <div style="margin-bottom:8px">
+            <div style="font-size:11px;color:var(--text2);margin-bottom:4px">Preview</div>
+            <canvas id="pixel-preview" width="64" height="64" style="border-radius:6px;image-rendering:pixelated;border:1px solid var(--border)"></canvas>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <button onclick="_undoPixel()" style="padding:6px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer;font-size:11px">↩ Ongedaan</button>
+            <button onclick="_clearPixelCanvas()" style="padding:6px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer;font-size:11px">🗑 Leegmaken</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload Tab -->
+    <div id="cover-tab-upload" class="cover-tab" style="display:none">
+      <label style="cursor:pointer;display:block">
+        <div style="border:2px dashed var(--border);border-radius:12px;padding:32px;text-align:center;color:var(--text2);font-size:13px">
+          📁 Klik om een afbeelding te kiezen
+        </div>
+        <input type="file" accept="image/*" style="display:none" onchange="_handleCoverFileInput(this)">
+      </label>
+      <img id="cover-upload-preview" style="display:none;margin-top:12px;max-width:100%;border-radius:8px;max-height:200px;object-fit:contain">
+    </div>
+
+    <!-- Emoji Tab -->
+    <div id="cover-tab-emoji" class="cover-tab" style="display:none">
+      <div style="display:flex;gap:16px;align-items:flex-start">
+        <div style="flex:1">
+          <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Emoji</div>
+          <div id="emoji-grid" style="display:grid;grid-template-columns:repeat(8,1fr);gap:2px;max-height:200px;overflow-y:auto"></div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:6px">Preview</div>
+          <div id="emoji-preview-box" style="width:80px;height:80px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:#1a1025;border:1px solid var(--border)">
+            <span id="emoji-preview-text" style="font-size:48px">🎵</span>
+          </div>
+          <div style="font-size:11px;color:var(--text2);margin:8px 0 4px">Achtergrond</div>
+          <div id="emoji-bg-grid" style="display:flex;flex-wrap:wrap;gap:4px;max-width:80px"></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="modal-btn" onclick="saveCoverEditor()">✓ Opslaan</button>
+      <button class="modal-btn secondary" onclick="document.getElementById('modal-cover-editor').classList.remove('open')">Annuleren</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
