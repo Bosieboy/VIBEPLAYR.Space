@@ -941,6 +941,29 @@
     min-width: 80px;
     text-align: center;
   }
+#ctx-menu {
+  display: none;
+  position: fixed;
+  z-index: 9999;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px 0;
+  min-width: 200px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+#ctx-menu.open { display: block; }
+.ctx-item {
+  padding: 9px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text1);
+  transition: background 0.1s;
+}
+.ctx-item:hover { background: var(--bg3); }
+.ctx-item.danger { color: #f87171; }
+.ctx-divider { height: 1px; background: var(--border); margin: 4px 0; }
+
 </style>
 </head>
 <body>
@@ -1788,7 +1811,7 @@ function renderTrackList(tracks) {
   noTracks.style.display = 'none';
 
   tbody.innerHTML = tracks.map((t, i) => `
-    <tr class="track-row ${currentQueue[currentIndex]?.id === t.id ? 'playing' : ''}" ondblclick="playTrackById('${t.id}', null)">
+    <tr class="track-row ${currentQueue[currentIndex]?.id === t.id ? 'playing' : ''}" ondblclick="playTrackById('${t.id}', null)" oncontextmenu="openCtxMenu(event,'${t.id}')">
       <td>${currentQueue[currentIndex]?.id === t.id ? `<div class="bars"><div class="bar"></div><div class="bar"></div><div class="bar"></div></div>` : (i+1)}</td>
       <td><span class="track-title">${esc(t.title)}</span></td>
       <td>${esc(t.artist)}</td>
@@ -2264,6 +2287,104 @@ audio.addEventListener('pause', () => {
 
 // ===== DELETE TRACK (met undo) =====
 let _undoBuffer = null;
+// ===== CONTEXT MENU =====
+let ctxTrackId = null;
+
+function openCtxMenu(event, trackId) {
+  event.preventDefault();
+  ctxTrackId = trackId;
+  const menu = document.getElementById('ctx-menu');
+  menu.classList.add('open');
+  let x = event.clientX;
+  let y = event.clientY;
+  if (x + 200 > window.innerWidth) x = window.innerWidth - 205;
+  if (y + 280 > window.innerHeight) y = window.innerHeight - 285;
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+}
+
+function closeCtxMenu() {
+  const menu = document.getElementById('ctx-menu');
+  if (menu) menu.classList.remove('open');
+  ctxTrackId = null;
+}
+
+document.addEventListener('click', e => { if (!e.target.closest('#ctx-menu')) closeCtxMenu(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCtxMenu(); });
+
+function ctxPlay() {
+  if (!ctxTrackId) return;
+  playTrackById(ctxTrackId, null);
+  closeCtxMenu();
+}
+
+function ctxAddToQueue() {
+  if (!ctxTrackId) return;
+  const track = allTracks.find(t => t.id === ctxTrackId);
+  if (!track) return;
+  if (!currentQueue.find(t => t.id === ctxTrackId)) {
+    currentQueue.push(track);
+    showToast(`"${track.title}" toegevoegd aan wachtrij`);
+  } else {
+    showToast('Staat al in de wachtrij');
+  }
+  closeCtxMenu();
+}
+
+function ctxAddToPlaylist() {
+  if (!ctxTrackId) return;
+  openAddToPlaylist(ctxTrackId);
+  closeCtxMenu();
+}
+
+function ctxDelete() {
+  if (!ctxTrackId) return;
+  deleteTrack(ctxTrackId);
+  closeCtxMenu();
+}
+
+async function ctxEditTitle() {
+  if (!ctxTrackId) return;
+  closeCtxMenu();
+  const track = allTracks.find(t => t.id === ctxTrackId);
+  if (!track) return;
+  const newVal = prompt('Nieuwe titel:', track.title);
+  if (newVal && newVal.trim() && newVal.trim() !== track.title) {
+    track.title = newVal.trim();
+    await dbPut('tracks', track);
+    await loadTracks();
+    showToast('Titel bijgewerkt ✓');
+  }
+}
+
+async function ctxEditArtist() {
+  if (!ctxTrackId) return;
+  closeCtxMenu();
+  const track = allTracks.find(t => t.id === ctxTrackId);
+  if (!track) return;
+  const newVal = prompt('Nieuwe artiest:', track.artist);
+  if (newVal && newVal.trim() && newVal.trim() !== track.artist) {
+    track.artist = newVal.trim();
+    await dbPut('tracks', track);
+    await loadTracks();
+    showToast('Artiest bijgewerkt ✓');
+  }
+}
+
+async function ctxEditAlbum() {
+  if (!ctxTrackId) return;
+  closeCtxMenu();
+  const track = allTracks.find(t => t.id === ctxTrackId);
+  if (!track) return;
+  const newVal = prompt('Nieuw album:', track.album);
+  if (newVal && newVal.trim() && newVal.trim() !== track.album) {
+    track.album = newVal.trim();
+    await dbPut('tracks', track);
+    await loadTracks();
+    showToast('Album bijgewerkt ✓');
+  }
+}
+
 let _undoTimer = null;
 
 async function deleteTrack(id) {
@@ -3696,6 +3817,19 @@ init();
       <button class="modal-btn secondary" onclick="document.getElementById('modal-cover-editor').classList.remove('open')">Annuleren</button>
     </div>
   </div>
+</div>
+
+<!-- Context menu -->
+<div id="ctx-menu">
+  <div class="ctx-item" onclick="ctxPlay()">▶ Afspelen</div>
+  <div class="ctx-item" onclick="ctxAddToQueue()">+ Wachtrij</div>
+  <div class="ctx-item" onclick="ctxAddToPlaylist()">🎵 Toevoegen aan playlist</div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item" onclick="ctxEditTitle()">✏️ Titel bewerken</div>
+  <div class="ctx-item" onclick="ctxEditArtist()">✏️ Artiest bewerken</div>
+  <div class="ctx-item" onclick="ctxEditAlbum()">💿 Album bewerken</div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item danger" onclick="ctxDelete()">🗑 Verwijderen</div>
 </div>
 
 </body>
