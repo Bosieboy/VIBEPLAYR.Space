@@ -1188,10 +1188,10 @@
     <!-- LIBRARY -->
     <div id="view-library" class="view active">
       <div class="v-header">
-        <div class="v-title">Library</div>
-        <button class="v-action" onclick="document.getElementById('file-input').click()">+ Import</button>
+        <div class="v-title" data-i18n="allTracks">Library</div>
+        <button class="v-action" onclick="document.getElementById('file-input').click()" data-i18n="importBtn">+ Import</button>
       </div>
-      <input class="search-bar" type="text" placeholder="Search tracks..." oninput="filterTracks(this.value)" id="search-input">
+      <input class="search-bar" type="text" placeholder="Search tracks..." data-i18n-placeholder="searchPlaceholder" oninput="filterTracks(this.value)" id="search-input">
       <div id="track-list"></div>
       <div id="no-tracks" class="empty-state" style="display:none">
         <span class="emoji">🎵</span>
@@ -1202,7 +1202,7 @@
     <!-- ALBUMS -->
     <div id="view-albums" class="view">
       <div class="v-header">
-        <div class="v-title">Albums</div>
+        <div class="v-title" data-i18n="albums">Albums</div>
       </div>
       <div id="album-grid" class="album-grid"></div>
       <div id="no-albums" class="empty-state" style="display:none">
@@ -1214,8 +1214,8 @@
     <!-- PLAYLISTS -->
     <div id="view-playlists" class="view">
       <div class="v-header">
-        <div class="v-title">Playlists</div>
-        <button class="v-action" onclick="openNewPlaylist()">+ New</button>
+        <div class="v-title" data-i18n="navPlaylists">Playlists</div>
+        <button class="v-action" onclick="openNewPlaylist()" data-i18n="newPlaylist">+ New</button>
       </div>
       <div id="playlist-list"></div>
       <div id="no-playlists" class="empty-state" style="display:none">
@@ -1227,14 +1227,30 @@
     <!-- SETTINGS -->
     <div id="view-settings" class="view">
       <div class="v-header">
-        <div class="v-title">Settings</div>
+        <div class="v-title" data-i18n="settingsTitle">Settings</div>
       </div>
 
       <div class="settings-section">
         <div class="settings-row">
           <div class="settings-row-left">
-            <div class="settings-row-label">Theme color</div>
-            <div class="settings-row-desc">Accent kleur van de app</div>
+            <div class="settings-row-label" data-i18n="secLanguage">Language</div>
+          </div>
+          <select class="settings-select" id="language-select" onchange="setLanguage(this.value)">
+            <option value="en">English</option>
+            <option value="nl">Nederlands</option>
+            <option value="de">Deutsch</option>
+            <option value="fr">Français</option>
+            <option value="es">Español</option>
+            <option value="ja">日本語</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-row">
+          <div class="settings-row-left">
+            <div class="settings-row-label" data-i18n="lblColorTheme">Theme color</div>
+            <div class="settings-row-desc" data-i18n="descColorTheme">Accent kleur van de app</div>
           </div>
         </div>
         <div class="theme-row" id="theme-row"></div>
@@ -1243,35 +1259,34 @@
       <div class="settings-section">
         <div class="settings-row">
           <div class="settings-row-left">
-            <div class="settings-row-label">Equalizer</div>
-            <div class="settings-row-desc">Sound preset</div>
+            <div class="settings-row-label" data-i18n="lblEQ">Equalizer</div>
+            <div class="settings-row-desc" data-i18n="descEQ">Sound preset</div>
           </div>
           <select class="settings-select" id="eq-preset" onchange="setEQPreset(this.value)">
-            <option value="flat">Flat</option>
-            <option value="bass">Bass boost</option>
-            <option value="treble">Treble</option>
-            <option value="vocal">Vocal</option>
-            <option value="rock">Rock</option>
-            <option value="electronic">Electronic</option>
-            <option value="classical">Classical</option>
-            <option value="jazz">Jazz</option>
+            <option value="flat" data-i18n="eqFlat">Flat</option>
+            <option value="bass" data-i18n="eqBass">Bass boost</option>
+            <option value="treble" data-i18n="eqTreble">Treble</option>
+            <option value="vocal" data-i18n="eqVocal">Vocal</option>
+            <option value="rock" data-i18n="eqRock">Rock</option>
+            <option value="electronic" data-i18n="eqElectronic">Electronic</option>
+            <option value="classical" data-i18n="eqClassical">Classical</option>
+            <option value="jazz" data-i18n="eqJazz">Jazz</option>
           </select>
         </div>
         <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:8px">
           <div style="display:flex;align-items:center;justify-content:space-between">
-            <div class="settings-row-label">Crossfade</div>
+            <div class="settings-row-label" data-i18n="lblCrossfade">Crossfade</div>
             <span class="settings-slider-val" id="crossfade-val">Off</span>
           </div>
           <div class="settings-slider-row">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-            <input type="range" id="crossfade-slider" min="0" max="10" step="1" value="0"
-              oninput="setCrossfade(this.value)">
+            <input type="range" id="crossfade-slider" min="0" max="10" step="1" value="0" oninput="setCrossfade(this.value)">
           </div>
         </div>
         <div class="settings-row">
           <div class="settings-row-left">
-            <div class="settings-row-label">Shuffle</div>
-            <div class="settings-row-desc">Random playback order</div>
+            <div class="settings-row-label" data-i18n="lblAnimations">Shuffle</div>
+            <div class="settings-row-desc" data-i18n="sortAdded">Random playback order</div>
           </div>
           <label class="toggle-switch">
             <input type="checkbox" id="toggle-shuffle" onchange="setShuffle(this.checked)">
@@ -1280,8 +1295,8 @@
         </div>
         <div class="settings-row">
           <div class="settings-row-left">
-            <div class="settings-row-label">Remaining time</div>
-            <div class="settings-row-desc">Show -x:xx in player</div>
+            <div class="settings-row-label" data-i18n="lblRemaining">Remaining time</div>
+            <div class="settings-row-desc" data-i18n="descRemaining">Show -x:xx in player</div>
           </div>
           <label class="toggle-switch">
             <input type="checkbox" id="toggle-remaining" onchange="saveSetting('remaining', this.checked)">
@@ -1290,8 +1305,8 @@
         </div>
         <div class="settings-row">
           <div class="settings-row-left">
-            <div class="settings-row-label">Mono mode</div>
-            <div class="settings-row-desc">Mix channels to mono</div>
+            <div class="settings-row-label" data-i18n="lblMono">Mono mode</div>
+            <div class="settings-row-desc" data-i18n="descMono">Mix channels to mono</div>
           </div>
           <label class="toggle-switch">
             <input type="checkbox" id="toggle-mono" onchange="setMonoMode(this.checked)">
@@ -1303,21 +1318,21 @@
       <div class="settings-section">
         <div class="settings-row" onclick="document.getElementById('file-input').click()" style="cursor:pointer">
           <div class="settings-row-left">
-            <div class="settings-row-label">Import tracks</div>
-            <div class="settings-row-desc">Add MP3, FLAC, WAV, OGG</div>
+            <div class="settings-row-label" data-i18n="lblExport">Import tracks</div>
+            <div class="settings-row-desc">MP3, FLAC, WAV, OGG</div>
           </div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
         <div class="settings-row" onclick="clearLibrary()" style="cursor:pointer">
           <div class="settings-row-left">
-            <div class="settings-row-label" style="color:var(--red)">Clear library</div>
-            <div class="settings-row-desc">Remove all tracks permanently</div>
+            <div class="settings-row-label" style="color:var(--red)" data-i18n="lblClear">Clear library</div>
+            <div class="settings-row-desc" data-i18n="descClear">Remove all tracks permanently</div>
           </div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
         </div>
       </div>
 
-      <div style="text-align:center;color:var(--text3);font-size:11px;padding:8px">
+      <div style="text-align:center;color:var(--text3);font-size:11px;padding:8px 0 16px">
         VIBEPLAYR Space Mobile · Same library as desktop
       </div>
     </div>
@@ -1328,7 +1343,7 @@
   <div id="mini-player" onclick="openNowPlaying()">
     <div id="mini-art">🎵</div>
     <div id="mini-info">
-      <div id="mini-title">Nothing playing</div>
+      <div id="mini-title" data-i18n="nothingPlaying">Nothing playing</div>
       <div id="mini-artist">—</div>
     </div>
     <div id="mini-controls" onclick="event.stopPropagation()">
@@ -1350,19 +1365,19 @@
   <div id="bottom-nav">
     <button class="nav-tab active" id="tab-library" onclick="switchTab('library')">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-      Library
+      <span data-i18n="navLibrary">Library</span>
     </button>
     <button class="nav-tab" id="tab-albums" onclick="switchTab('albums')">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
-      Albums
+      <span data-i18n="albums">Albums</span>
     </button>
     <button class="nav-tab" id="tab-playlists" onclick="switchTab('playlists')">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-      Playlists
+      <span data-i18n="navPlaylists">Playlists</span>
     </button>
     <button class="nav-tab" id="tab-settings" onclick="switchTab('settings')">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      Settings
+      <span data-i18n="settings">Settings</span>
     </button>
   </div>
 
@@ -1388,13 +1403,13 @@
   <!-- No lyrics state -->
   <div id="np-no-lyrics">
     <span>No lyrics found</span>
-    <button id="np-lrc-search-btn" onclick="npSearchLyrics()">🔍 Find lyrics</button>
+    <button id="np-lrc-search-btn" onclick="npSearchLyrics()" data-i18n="findLyrics">🔍 Find lyrics</button>
   </div>
 
   <div id="np-info">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
       <div style="min-width:0;flex:1">
-        <div id="np-title">Nothing playing</div>
+        <div id="np-title" data-i18n="nothingPlaying">Nothing playing</div>
         <div id="np-artist">—</div>
       </div>
       <button id="np-lrc-btn" onclick="openLyricsFs()" title="Fullscreen lyrics" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text2);font-family:'Syne',sans-serif;font-size:10px;font-weight:700;padding:6px 10px;cursor:pointer;flex-shrink:0;letter-spacing:0.5px;display:none">LRC ↑</button>
@@ -1471,13 +1486,13 @@
       <div id="sheet-artist" style="font-size:12px;color:var(--text2);margin-top:2px"></div>
     </div>
   </div>
-  <button class="sheet-action" onclick="sheetPlay()"><div class="sheet-action-icon">▶</div>Play now</button>
-  <button class="sheet-action" onclick="sheetAddToQueue()"><div class="sheet-action-icon">➕</div>Add to queue</button>
-  <button class="sheet-action" onclick="sheetAddToPlaylist()"><div class="sheet-action-icon">🎵</div>Add to playlist</button>
+  <button class="sheet-action" onclick="sheetPlay()"><div class="sheet-action-icon">▶</div><span data-i18n="playNow">Play now</span></button>
+  <button class="sheet-action" onclick="sheetAddToQueue()"><div class="sheet-action-icon">➕</div><span data-i18n="addQueue">Add to queue</span></button>
+  <button class="sheet-action" onclick="sheetAddToPlaylist()"><div class="sheet-action-icon">🎵</div><span data-i18n="addPlaylist">Add to playlist</span></button>
   <div class="sheet-sep"></div>
-  <button class="sheet-action" onclick="sheetFindLyrics()"><div class="sheet-action-icon">🔍</div>Find lyrics</button>
+  <button class="sheet-action" onclick="sheetFindLyrics()"><div class="sheet-action-icon">🔍</div><span data-i18n="searchLyrics">Find lyrics</span></button>
   <div class="sheet-sep"></div>
-  <button class="sheet-action danger" onclick="sheetDelete()"><div class="sheet-action-icon" style="background:rgba(244,63,94,0.15)">🗑</div>Delete</button>
+  <button class="sheet-action danger" onclick="sheetDelete()"><div class="sheet-action-icon" style="background:rgba(244,63,94,0.15)">🗑</div><span data-i18n="deleteTrack">Delete</span></button>
 </div>
 
 <!-- FULLSCREEN LYRICS -->
@@ -1527,17 +1542,21 @@
 <!-- NEW PLAYLIST MODAL -->
 <div id="playlist-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:800;display:none;align-items:flex-end">
   <div style="background:var(--bg2);border-radius:20px 20px 0 0;padding:24px 20px calc(20px + var(--safe-bottom));width:100%">
-    <div style="font-size:16px;font-weight:700;margin-bottom:16px">New playlist</div>
-    <input type="text" id="new-playlist-name" placeholder="Playlist name..." style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 16px;color:var(--text);font-family:'Syne',sans-serif;font-size:14px;outline:none;margin-bottom:16px">
+    <div style="font-size:16px;font-weight:700;margin-bottom:16px" data-i18n="newPlaylist">New playlist</div>
+    <input type="text" id="new-playlist-name" data-i18n-placeholder="searchPlaceholder" placeholder="Playlist name..." style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 16px;color:var(--text);font-family:'Syne',sans-serif;font-size:14px;outline:none;margin-bottom:16px">
     <div style="display:flex;gap:10px">
-      <button onclick="closeNewPlaylist()" style="flex:1;background:var(--bg3);border:none;border-radius:10px;color:var(--text2);font-family:'Syne',sans-serif;font-size:14px;font-weight:600;padding:12px;cursor:pointer">Cancel</button>
-      <button onclick="createPlaylist()" style="flex:1;background:var(--accent);border:none;border-radius:10px;color:white;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;padding:12px;cursor:pointer">Create</button>
+      <button onclick="closeNewPlaylist()" data-i18n="cancelBtn" style="flex:1;background:var(--bg3);border:none;border-radius:10px;color:var(--text2);font-family:'Syne',sans-serif;font-size:14px;font-weight:600;padding:12px;cursor:pointer">Cancel</button>
+      <button onclick="createPlaylist()" data-i18n="createBtn" style="flex:1;background:var(--accent);border:none;border-radius:10px;color:white;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;padding:12px;cursor:pointer">Create</button>
     </div>
   </div>
 </div>
 
 <script>
-// ===== DB =====
+// ===== DESKTOP REDIRECT =====
+// Als je op desktop op "Switch to desktop" klikt, ga je naar index.html
+// Mobiel die handmatig desktop wilde: force-desktop zit in sessionStorage
+// Desktop die mobiel wil forceren: niets nodig, dat doet index.html zelf
+
 let db = null;
 let allTracks = [];
 let playlists = {};
@@ -1588,6 +1607,7 @@ function loadSettings() {
   if (appSettings.eqPreset) document.getElementById('eq-preset').value = appSettings.eqPreset;
   if (appSettings.crossfade !== undefined) setCrossfade(appSettings.crossfade);
   else setCrossfade(0);
+  if (appSettings.lang) setLanguage(appSettings.lang, true);
 }
 function saveSetting(key, val) {
   appSettings[key] = val;
@@ -1806,7 +1826,7 @@ let crossfadeActive = false;
 function setCrossfade(val) {
   crossfadeSeconds = parseInt(val);
   saveSetting('crossfade', crossfadeSeconds);
-  const label = crossfadeSeconds === 0 ? 'Off' : crossfadeSeconds + 's';
+  const label = crossfadeSeconds === 0 ? (_t('crossfadeOff') || 'Off') : crossfadeSeconds + 's';
   document.getElementById('crossfade-val').textContent = label;
   document.getElementById('crossfade-slider').value = val;
 }
@@ -2351,10 +2371,10 @@ function lfsSeek(e) {
 async function npSearchLyrics() {
   const track = currentQueue[currentIndex];
   if (!track) return;
-  document.getElementById('np-lrc-search-btn').textContent = '⏳ Searching...';
+  document.getElementById('np-lrc-search-btn').textContent = '⏳ ...';
   const lrc = await fetchLrcForTrack(track);
-  document.getElementById('np-lrc-search-btn').textContent = '🔍 Find lyrics';
-  if (!lrc) { showToast('No lyrics found'); return; }
+  document.getElementById('np-lrc-search-btn').textContent = _t('findLyrics');
+  if (!lrc) { showToast(_t('noLyricsFound')); return; }
   track.lrc = lrc;
   const fullTrack = await dbGet('tracks', track.id);
   if (fullTrack) { fullTrack.lrc = lrc; await dbPut('tracks', fullTrack); }
@@ -2407,7 +2427,183 @@ function setMonoMode(on) {
   saveSetting('mono',on); showToast(on?'Mono on':'Stereo on');
 }
 
-// ===== THEMES =====
+// ===== I18N =====
+const TRANSLATIONS = {
+  en: {
+    navLibrary:'Library', navPlaylists:'Playlists', albums:'Albums', settings:'Settings', newPlaylist:'New playlist',
+    allTracks:'Library', searchPlaceholder:'Search tracks...', importBtn:'+ Import',
+    settingsTitle:'Settings', secLanguage:'Language',
+    lblColorTheme:'Theme color', descColorTheme:'App accent color',
+    lblEQ:'Equalizer', descEQ:'Sound preset',
+    eqFlat:'Flat', eqBass:'Bass boost', eqTreble:'Treble', eqVocal:'Vocal',
+    eqRock:'Rock', eqElectronic:'Electronic', eqClassical:'Classical', eqJazz:'Jazz',
+    lblCrossfade:'Crossfade', descCrossfade:'Smooth transition between tracks',
+    lblAnimations:'Shuffle', sortAdded:'Random playback order',
+    lblRemaining:'Remaining time', descRemaining:'Show -x:xx in player',
+    lblMono:'Mono mode', descMono:'Mix channels to mono',
+    lblExport:'Import tracks', lblClear:'Clear library', descClear:'Remove all tracks permanently',
+    playBtn:'▶ Play', cancelBtn:'Cancel', createBtn:'Create',
+    nothingPlaying:'Nothing playing',
+    noTracksMsg:'No tracks yet.\nTap + Import to add music.',
+    noAlbumsMsg:'No albums found.\nAlbums appear from your tracks.',
+    noPlaylistsMsg:'No playlists yet.',
+    switchDesktop:'Switch to desktop version',
+    findLyrics:'🔍 Find lyrics', noLyricsFound:'No lyrics found',
+    deleteTrack:'Delete', playNow:'Play now', addQueue:'Add to queue', addPlaylist:'Add to playlist',
+    searchLyrics:'Find lyrics',
+    crossfadeOff:'Off',
+  },
+  nl: {
+    navLibrary:'Bibliotheek', navPlaylists:'Playlists', albums:'Albums', settings:'Instellingen', newPlaylist:'Nieuwe playlist',
+    allTracks:'Bibliotheek', searchPlaceholder:'Nummers zoeken...', importBtn:'+ Importeren',
+    settingsTitle:'Instellingen', secLanguage:'Taal',
+    lblColorTheme:'Themakleur', descColorTheme:'Accentkleur van de app',
+    lblEQ:'Equalizer', descEQ:'Geluidsinstelling',
+    eqFlat:'Vlak', eqBass:'Bas versterkt', eqTreble:'Hoge tonen', eqVocal:'Vocaal',
+    eqRock:'Rock', eqElectronic:'Elektronisch', eqClassical:'Klassiek', eqJazz:'Jazz',
+    lblCrossfade:'Crossfade', descCrossfade:'Vloeiende overgang tussen nummers',
+    lblAnimations:'Shuffle', sortAdded:'Willekeurige volgorde',
+    lblRemaining:'Resterende tijd', descRemaining:'Toon -x:xx in de speler',
+    lblMono:'Monomodus', descMono:'Kanalen samenvoegen tot mono',
+    lblExport:'Nummers importeren', lblClear:'Bibliotheek wissen', descClear:'Alle nummers permanent verwijderen',
+    playBtn:'▶ Afspelen', cancelBtn:'Annuleren', createBtn:'Aanmaken',
+    nothingPlaying:'Niets aan het spelen',
+    noTracksMsg:'Nog geen nummers.\nTik op + Importeren om muziek toe te voegen.',
+    noAlbumsMsg:'Geen albums gevonden.\nAlbums verschijnen vanuit je nummers.',
+    noPlaylistsMsg:'Nog geen playlists.',
+    switchDesktop:'Naar desktopversie',
+    findLyrics:'🔍 Songtekst zoeken', noLyricsFound:'Geen songtekst gevonden',
+    deleteTrack:'Verwijderen', playNow:'Nu afspelen', addQueue:'Aan wachtrij toevoegen', addPlaylist:'Aan playlist toevoegen',
+    searchLyrics:'Songtekst zoeken',
+    crossfadeOff:'Uit',
+  },
+  de: {
+    navLibrary:'Bibliothek', navPlaylists:'Playlists', albums:'Alben', settings:'Einstellungen', newPlaylist:'Neue Playlist',
+    allTracks:'Bibliothek', searchPlaceholder:'Titel suchen...', importBtn:'+ Importieren',
+    settingsTitle:'Einstellungen', secLanguage:'Sprache',
+    lblColorTheme:'Farbthema', descColorTheme:'Akzentfarbe der App',
+    lblEQ:'Equalizer', descEQ:'Klangvoreinstellung',
+    eqFlat:'Flach', eqBass:'Bass-Boost', eqTreble:'Höhen', eqVocal:'Gesang',
+    eqRock:'Rock', eqElectronic:'Elektronisch', eqClassical:'Klassisch', eqJazz:'Jazz',
+    lblCrossfade:'Crossfade', descCrossfade:'Sanfter Übergang zwischen Titeln',
+    lblAnimations:'Shuffle', sortAdded:'Zufällige Reihenfolge',
+    lblRemaining:'Verbleibende Zeit', descRemaining:'-x:xx im Player anzeigen',
+    lblMono:'Mono-Modus', descMono:'Beide Kanäle zu Mono zusammenführen',
+    lblExport:'Titel importieren', lblClear:'Bibliothek leeren', descClear:'Alle Titel dauerhaft löschen',
+    playBtn:'▶ Abspielen', cancelBtn:'Abbrechen', createBtn:'Erstellen',
+    nothingPlaying:'Nichts läuft',
+    noTracksMsg:'Noch keine Titel.\nAuf + Importieren tippen.',
+    noAlbumsMsg:'Keine Alben gefunden.\nAlben werden aus deinen Titeln erstellt.',
+    noPlaylistsMsg:'Noch keine Playlists.',
+    switchDesktop:'Zur Desktop-Version',
+    findLyrics:'🔍 Songtext suchen', noLyricsFound:'Kein Songtext gefunden',
+    deleteTrack:'Löschen', playNow:'Jetzt abspielen', addQueue:'Zur Warteschlange', addPlaylist:'Zur Playlist',
+    searchLyrics:'Songtext suchen',
+    crossfadeOff:'Aus',
+  },
+  fr: {
+    navLibrary:'Bibliothèque', navPlaylists:'Playlists', albums:'Albums', settings:'Paramètres', newPlaylist:'Nouvelle playlist',
+    allTracks:'Bibliothèque', searchPlaceholder:'Rechercher...', importBtn:'+ Importer',
+    settingsTitle:'Paramètres', secLanguage:'Langue',
+    lblColorTheme:'Thème couleur', descColorTheme:"Couleur d'accentuation",
+    lblEQ:'Égaliseur', descEQ:'Préréglage sonore',
+    eqFlat:'Plat', eqBass:'Graves', eqTreble:'Aigus', eqVocal:'Vocal',
+    eqRock:'Rock', eqElectronic:'Électronique', eqClassical:'Classique', eqJazz:'Jazz',
+    lblCrossfade:'Fondu enchaîné', descCrossfade:'Transition douce entre titres',
+    lblAnimations:'Aléatoire', sortAdded:'Ordre aléatoire',
+    lblRemaining:'Temps restant', descRemaining:'Afficher -x:xx dans le lecteur',
+    lblMono:'Mode mono', descMono:'Fusionner les deux canaux en mono',
+    lblExport:'Importer des titres', lblClear:'Vider la bibliothèque', descClear:'Supprimer définitivement tous les titres',
+    playBtn:'▶ Lire', cancelBtn:'Annuler', createBtn:'Créer',
+    nothingPlaying:'Rien en lecture',
+    noTracksMsg:'Aucun titre.\nAppuyer sur + Importer.',
+    noAlbumsMsg:'Aucun album trouvé.',
+    noPlaylistsMsg:'Aucune playlist.',
+    switchDesktop:'Vers la version bureau',
+    findLyrics:'🔍 Chercher paroles', noLyricsFound:'Paroles introuvables',
+    deleteTrack:'Supprimer', playNow:'Lire maintenant', addQueue:'Ajouter à la file', addPlaylist:'Ajouter à la playlist',
+    searchLyrics:'Chercher paroles',
+    crossfadeOff:'Désactivé',
+  },
+  es: {
+    navLibrary:'Biblioteca', navPlaylists:'Listas', albums:'Álbumes', settings:'Ajustes', newPlaylist:'Nueva lista',
+    allTracks:'Biblioteca', searchPlaceholder:'Buscar...', importBtn:'+ Importar',
+    settingsTitle:'Ajustes', secLanguage:'Idioma',
+    lblColorTheme:'Tema de color', descColorTheme:'Color de acento de la app',
+    lblEQ:'Ecualizador', descEQ:'Ajuste de sonido',
+    eqFlat:'Plano', eqBass:'Graves', eqTreble:'Agudos', eqVocal:'Vocal',
+    eqRock:'Rock', eqElectronic:'Electrónico', eqClassical:'Clásico', eqJazz:'Jazz',
+    lblCrossfade:'Crossfade', descCrossfade:'Transición suave entre pistas',
+    lblAnimations:'Aleatorio', sortAdded:'Orden aleatorio',
+    lblRemaining:'Tiempo restante', descRemaining:'Mostrar -x:xx en el reproductor',
+    lblMono:'Modo mono', descMono:'Combinar canales a mono',
+    lblExport:'Importar pistas', lblClear:'Vaciar biblioteca', descClear:'Eliminar todas las pistas permanentemente',
+    playBtn:'▶ Reproducir', cancelBtn:'Cancelar', createBtn:'Crear',
+    nothingPlaying:'Nada reproduciéndose',
+    noTracksMsg:'Sin pistas.\nTocar + Importar.',
+    noAlbumsMsg:'Sin álbumes.',
+    noPlaylistsMsg:'Sin listas.',
+    switchDesktop:'Versión escritorio',
+    findLyrics:'🔍 Buscar letra', noLyricsFound:'Letra no encontrada',
+    deleteTrack:'Eliminar', playNow:'Reproducir ahora', addQueue:'Añadir a cola', addPlaylist:'Añadir a lista',
+    searchLyrics:'Buscar letra',
+    crossfadeOff:'Desactivado',
+  },
+  ja: {
+    navLibrary:'ライブラリ', navPlaylists:'プレイリスト', albums:'アルバム', settings:'設定', newPlaylist:'新しいプレイリスト',
+    allTracks:'ライブラリ', searchPlaceholder:'曲を検索...', importBtn:'+ インポート',
+    settingsTitle:'設定', secLanguage:'言語',
+    lblColorTheme:'テーマカラー', descColorTheme:'アプリのアクセントカラー',
+    lblEQ:'イコライザー', descEQ:'サウンドプリセット',
+    eqFlat:'フラット', eqBass:'バスブースト', eqTreble:'トレブル', eqVocal:'ボーカル',
+    eqRock:'ロック', eqElectronic:'エレクトロニック', eqClassical:'クラシック', eqJazz:'ジャズ',
+    lblCrossfade:'クロスフェード', descCrossfade:'トラック間のなめらかな移行',
+    lblAnimations:'シャッフル', sortAdded:'ランダム再生',
+    lblRemaining:'残り時間', descRemaining:'プレイヤーに -x:xx を表示',
+    lblMono:'モノラル', descMono:'両チャンネルをモノラルに結合',
+    lblExport:'トラックをインポート', lblClear:'ライブラリをクリア', descClear:'すべてのトラックを完全に削除',
+    playBtn:'▶ 再生', cancelBtn:'キャンセル', createBtn:'作成',
+    nothingPlaying:'再生中なし',
+    noTracksMsg:'トラックなし。\n+ インポートをタップ。',
+    noAlbumsMsg:'アルバムなし。',
+    noPlaylistsMsg:'プレイリストなし。',
+    switchDesktop:'デスクトップ版へ',
+    findLyrics:'🔍 歌詞を検索', noLyricsFound:'歌詞が見つかりません',
+    deleteTrack:'削除', playNow:'今すぐ再生', addQueue:'キューに追加', addPlaylist:'プレイリストに追加',
+    searchLyrics:'歌詞を検索',
+    crossfadeOff:'オフ',
+  },
+};
+
+let currentLang = 'en';
+
+function setLanguage(lang, silent) {
+  currentLang = lang;
+  const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (t[key] !== undefined) el.textContent = t[key];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    if (t[key] !== undefined) el.placeholder = t[key];
+  });
+  const sel = document.getElementById('language-select');
+  if (sel) sel.value = lang;
+  // Update crossfade off label
+  if (!silent) {
+    saveSetting('lang', lang);
+    if (appSettings.crossfade === 0 || !appSettings.crossfade) {
+      document.getElementById('crossfade-val').textContent = t.crossfadeOff || 'Off';
+    }
+  }
+}
+
+function _t(key) {
+  return (TRANSLATIONS[currentLang] || TRANSLATIONS.en)[key] || (TRANSLATIONS.en[key] || key);
+}
+
+
 const THEMES = {
   default:{accent:'#7c6af7',accent2:'#a78bfa',accent3:'#c4b5fd'},
   rose:{accent:'#f43f5e',accent2:'#fb7185',accent3:'#fda4af'},
@@ -2451,7 +2647,6 @@ async function clearLibrary() {
   showToast('Library cleared');
 }
 
-// ===== INIT =====
 async function init() {
   await initDB();
   loadSettings();
