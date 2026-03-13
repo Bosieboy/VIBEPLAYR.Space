@@ -1782,7 +1782,7 @@
 // ===== MOBILE REDIRECT =====
 (function() {
   const isMobile = /Android|iPhone|iPad|iPod|IEMobile|Opera Mini|Mobile|Tablet/i.test(navigator.userAgent)
-    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPad OS
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   if (isMobile && !sessionStorage.getItem('force-desktop')) {
     window.location.replace('https://vibeplayr.space/indexmobile.html');
   }
