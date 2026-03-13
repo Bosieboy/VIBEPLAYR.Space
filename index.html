@@ -1779,6 +1779,14 @@
 <audio id="audio"></audio>
 
 <script>
+// ===== MOBILE REDIRECT =====
+(function() {
+  const isMobile = /Android|iPhone|iPad|iPod|IEMobile|Opera Mini|Mobile|Tablet/i.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); // iPad OS
+  if (isMobile && !sessionStorage.getItem('force-desktop')) {
+    window.location.replace('https://vibeplayr.space/indexmobile.html');
+  }
+})();
 // ===== STATE =====
 let db;
 const audioCache = new Map(); // trackId -> objectURL (in-memory, verdwijnt bij pagina refresh)
