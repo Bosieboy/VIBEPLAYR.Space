@@ -883,12 +883,13 @@
     align-items: center;
     gap: 10px;
     margin-top: 8px;
-    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
   }
   .settings-slider-row input[type=range] {
     flex: 1;
     min-width: 0;
-    max-width: 160px;
+    width: 0; /* laat flex de breedte bepalen */
   }
   .settings-slider-row span {
     font-family: 'DM Mono', monospace;
@@ -896,6 +897,8 @@
     color: var(--text2);
     white-space: nowrap;
     flex-shrink: 0;
+    min-width: 36px;
+    text-align: right;
   }
 
   /* Toggle switch */
@@ -1289,6 +1292,12 @@
             <div class="theme-opt" data-theme="amber" style="--c:#f59e0b" onclick="setTheme('amber')"><span></span>Amber</div>
             <div class="theme-opt" data-theme="green" style="--c:#22c55e" onclick="setTheme('green')"><span></span>Green</div>
             <div class="theme-opt" data-theme="pink" style="--c:#ec4899" onclick="setTheme('pink')"><span></span>Pink</div>
+            <div class="theme-opt" data-theme="orange" style="--c:#f97316" onclick="setTheme('orange')"><span></span>Orange</div>
+            <div class="theme-opt" data-theme="red" style="--c:#ef4444" onclick="setTheme('red')"><span></span>Red</div>
+            <div class="theme-opt" data-theme="indigo" style="--c:#6366f1" onclick="setTheme('indigo')"><span></span>Indigo</div>
+            <div class="theme-opt" data-theme="teal" style="--c:#14b8a6" onclick="setTheme('teal')"><span></span>Teal</div>
+            <div class="theme-opt" data-theme="lime" style="--c:#84cc16" onclick="setTheme('lime')"><span></span>Lime</div>
+            <div class="theme-opt" data-theme="white" style="--c:#e2e8f0" onclick="setTheme('white')"><span></span>White</div>
           </div>
         </div>
         <div class="settings-item">
@@ -1644,7 +1653,17 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
       <input type="range" id="volume" min="0" max="1" step="0.01" value="0.8" oninput="setVolume(this.value)">
     </div>
-    <button class="lyrics-toggle" id="lyrics-btn" onclick="toggleLyrics()">LRC</button>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button id="cast-btn" onclick="toggleCast()" title="Cast to device" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:4px;border-radius:6px;display:flex;align-items:center;transition:color 0.15s" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text3)'">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M2 8.5A12.5 12.5 0 0 1 14.5 21"/>
+          <path d="M2 13.5A7.5 7.5 0 0 1 9.5 21"/>
+          <circle cx="2.5" cy="20.5" r="1.5" fill="currentColor"/>
+          <path d="M5 3h14a2 2 0 0 1 2 2v10"/>
+        </svg>
+      </button>
+      <button class="lyrics-toggle" id="lyrics-btn" onclick="toggleLyrics()">LRC</button>
+    </div>
   </div>
 </div>
 
@@ -2129,21 +2148,32 @@ function renderTrackList(tracks) {
   }
   noTracks.style.display = 'none';
 
-  tbody.innerHTML = tracks.map((t, i) => `
-    <tr class="track-row ${currentQueue[currentIndex]?.id === t.id ? 'playing' : ''}" data-id="${t.id}" ondblclick="playTrackById('${t.id}', null)">
-      <td>${currentQueue[currentIndex]?.id === t.id ? `<div class="bars"><div class="bar"></div><div class="bar"></div><div class="bar"></div></div>` : (i+1)}</td>
-      <td><span class="track-title">${esc(t.title)}</span></td>
+  tbody.innerHTML = tracks.map((t, i) => {
+    const isPlaying = currentQueue[currentIndex]?.id === t.id;
+    const cover = _getCover('track', t.id) || _getCover('album', t.album);
+    const coverHtml = cover
+      ? `<img src="${cover}" style="width:32px;height:32px;border-radius:4px;object-fit:cover;flex-shrink:0">`
+      : `<div style="width:32px;height:32px;border-radius:4px;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">🎵</div>`;
+    return `
+    <tr class="track-row ${isPlaying ? 'playing' : ''}" data-id="${t.id}" ondblclick="playTrackById('${t.id}', null)">
+      <td>${isPlaying ? `<div class="bars"><div class="bar"></div><div class="bar"></div><div class="bar"></div></div>` : (i+1)}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:10px;min-width:0">
+          ${coverHtml}
+          <span class="track-title" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.title)}</span>
+        </div>
+      </td>
       <td>${esc(t.artist)}</td>
       <td>${esc(t.album)}</td>
       <td class="track-dur">${formatTime(t.duration)}</td>
       <td>${t.lrc ? '<span class="lrc-badge">LRC</span>' : ''}</td>
       <td>
         <div class="track-actions">
-          <button class="track-action-btn dots-btn" onclick="event.stopPropagation();openTrackMenu(event,'${t.id}')" title="Opties">⋯</button>
+          <button class="track-action-btn dots-btn" onclick="event.stopPropagation();openTrackMenu(event,'${t.id}')" title="Options">⋯</button>
         </div>
       </td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 }
 
 function filterTracks(q) {
@@ -2746,7 +2776,10 @@ async function playCurrentTrack() {
 
   // Reset crossfade state for new track
   if (crossfadeTimeout && crossfadeTimeout !== 'pending') clearTimeout(crossfadeTimeout);
+  if (crossfadeRAF) { cancelAnimationFrame(crossfadeRAF); crossfadeRAF = null; }
   crossfadeTimeout = null;
+  // Herstel volume naar normaal
+  audio.volume = parseFloat(document.getElementById('volume')?.value) || 0.8;
 
   const fullTrack = await dbGet('tracks', track.id);
   if (!fullTrack) { showToast('Track not found'); return; }
@@ -3505,6 +3538,12 @@ const THEMES = {
   amber:   { accent:'#f59e0b', accent2:'#fbbf24', accent3:'#fde68a' },
   green:   { accent:'#22c55e', accent2:'#4ade80', accent3:'#86efac' },
   pink:    { accent:'#ec4899', accent2:'#f472b6', accent3:'#f9a8d4' },
+  orange:  { accent:'#f97316', accent2:'#fb923c', accent3:'#fdba74' },
+  red:     { accent:'#ef4444', accent2:'#f87171', accent3:'#fca5a5' },
+  indigo:  { accent:'#6366f1', accent2:'#818cf8', accent3:'#a5b4fc' },
+  teal:    { accent:'#14b8a6', accent2:'#2dd4bf', accent3:'#5eead4' },
+  lime:    { accent:'#84cc16', accent2:'#a3e635', accent3:'#bef264' },
+  white:   { accent:'#e2e8f0', accent2:'#f1f5f9', accent3:'#ffffff' },
 };
 function setTheme(name, silent) {
   const t = THEMES[name] || THEMES.default;
@@ -3735,24 +3774,92 @@ function setCrossfade(val) {
 
 function _startCrossfade(onComplete) {
   const secs = parseFloat(appSettings.crossfade) || 0;
-  if (!secs || !audioCtx || !gainNode) { onComplete(); return; }
-  const start = audioCtx.currentTime;
-  gainNode.gain.cancelScheduledValues(start);
-  gainNode.gain.setValueAtTime(gainNode.gain.value, start);
-  gainNode.gain.linearRampToValueAtTime(0, start + secs);
-  crossfadeTimeout = setTimeout(() => {
-    gainNode.gain.cancelScheduledValues(audioCtx.currentTime);
-    gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-    onComplete();
-    // Fade back in
-    gainNode.gain.linearRampToValueAtTime(1, audioCtx.currentTime + secs);
-  }, secs * 1000);
+  if (!secs) { onComplete(); return; }
+  const startVol = audio.volume;
+  const startTime = performance.now();
+  const tick = () => {
+    const elapsed = (performance.now() - startTime) / 1000;
+    const progress = Math.min(elapsed / secs, 1);
+    audio.volume = startVol * (1 - progress);
+    if (progress < 1) {
+      crossfadeRAF = requestAnimationFrame(tick);
+    } else {
+      audio.volume = 0;
+      onComplete();
+      // Fade in nieuw nummer
+      const volTarget = parseFloat(document.getElementById('volume').value) || 0.8;
+      const fadeStart = performance.now();
+      const fadeIn = () => {
+        const p = Math.min((performance.now() - fadeStart) / 1000 / secs, 1);
+        audio.volume = volTarget * p;
+        if (p < 1) requestAnimationFrame(fadeIn);
+        else audio.volume = volTarget;
+      };
+      requestAnimationFrame(fadeIn);
+    }
+  };
+  crossfadeRAF = requestAnimationFrame(tick);
 }
 
 // SHOW REMAINING TIME
 function setShowRemaining(on) {
   saveSetting('remaining', on);
 }
+
+let castConnected = false;
+
+async function toggleCast() {
+  const btn = document.getElementById('cast-btn');
+
+  // RemotePlayback API (Chrome/Edge, werkt met Chromecast, AirPlay, etc.)
+  if (audio.remote) {
+    try {
+      if (castConnected) {
+        await audio.remote.cancelWatchAvailability();
+        castConnected = false;
+        btn.style.color = 'var(--text3)';
+        showToast('Cast disconnected');
+        return;
+      }
+
+      audio.remote.onconnecting = () => {
+        btn.style.color = 'var(--accent)';
+        showToast('Connecting to cast device...');
+      };
+      audio.remote.onconnect = () => {
+        castConnected = true;
+        btn.style.color = 'var(--accent)';
+        showToast('Connected to cast device ✓');
+      };
+      audio.remote.ondisconnect = () => {
+        castConnected = false;
+        btn.style.color = 'var(--text3)';
+        showToast('Cast disconnected');
+      };
+
+      await audio.remote.prompt();
+    } catch(e) {
+      if (e.name === 'NotSupportedError') {
+        showToast('No cast devices found nearby');
+      } else if (e.name !== 'AbortError') {
+        showToast('Cast unavailable: ' + e.message);
+      }
+    }
+    return;
+  }
+
+  showToast('Cast not supported in this browser');
+}
+
+// Check cast availability on load
+if (audio.remote) {
+  audio.remote.watchAvailability(available => {
+    const btn = document.getElementById('cast-btn');
+    if (btn) btn.style.opacity = available ? '1' : '0.4';
+  }).catch(() => {});
+}
+
+
 
 
 // LYRICS FONT SIZE
