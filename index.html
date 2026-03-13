@@ -1996,43 +1996,80 @@ async function parseAudioMeta(arrayBuffer, filename) {
   const result = parseFileMeta(filename);
   const buf = new Uint8Array(arrayBuffer);
 
+  // Veilige base64 voor grote binaire blobs (btoa faalt op bytes > 255 via forEach string trick)
+  function _toBase64(uint8arr) {
+    let bin = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < uint8arr.length; i += chunkSize) {
+      bin += String.fromCharCode(...uint8arr.subarray(i, i + chunkSize));
+    }
+    return btoa(bin);
+  }
+
+  function _normMime(m) {
+    if (!m) return 'image/jpeg';
+    m = m.toLowerCase().trim().replace(/\0/g, '');
+    if (m === 'image/jpg' || m === 'jpg' || m === 'jpeg') return 'image/jpeg';
+    if (m === 'png') return 'image/png';
+    if (m === 'image/png') return 'image/png';
+    if (m === 'image/gif') return 'image/gif';
+    if (m === 'image/webp') return 'image/webp';
+    if (m.startsWith('image/')) return m;
+    return 'image/jpeg';
+  }
+
   // ===== ID3v2 =====
   if (buf[0] === 0x49 && buf[1] === 0x44 && buf[2] === 0x33) {
     const v = buf[3];
     const flags = buf[5];
-    const size = ((buf[6]&0x7F)<<21)|((buf[7]&0x7F)<<14)|((buf[8]&0x7F)<<7)|(buf[9]&0x7F);
+    const tagSize = ((buf[6]&0x7F)<<21)|((buf[7]&0x7F)<<14)|((buf[8]&0x7F)<<7)|(buf[9]&0x7F);
     let pos = 10;
-    if (flags & 0x40) { pos += (buf[10]<<24)|(buf[11]<<16)|(buf[12]<<8)|buf[13]; }
-    const end = 10 + size;
-    while (pos + 10 < end && pos < buf.length) {
+    // Extended header
+    if (flags & 0x40) {
+      const extSize = v >= 4
+        ? ((buf[10]&0x7F)<<21)|((buf[11]&0x7F)<<14)|((buf[12]&0x7F)<<7)|(buf[13]&0x7F)
+        : (buf[10]<<24)|(buf[11]<<16)|(buf[12]<<8)|buf[13];
+      pos += extSize;
+    }
+    const end = 10 + tagSize;
+    while (pos + 10 <= end && pos + 10 <= buf.length) {
       const frameId = String.fromCharCode(buf[pos],buf[pos+1],buf[pos+2],buf[pos+3]);
       if (!frameId.trim() || buf[pos] === 0) break;
       const fSize = v >= 4
         ? ((buf[pos+4]&0x7F)<<21)|((buf[pos+5]&0x7F)<<14)|((buf[pos+6]&0x7F)<<7)|(buf[pos+7]&0x7F)
         : (buf[pos+4]<<24)|(buf[pos+5]<<16)|(buf[pos+6]<<8)|buf[pos+7];
       pos += 10;
-      if (fSize <= 0 || pos + fSize > buf.length) break;
+      if (fSize <= 0 || fSize > 30_000_000) { pos += Math.max(0, fSize); continue; }
+      if (pos + fSize > buf.length) break;
       const enc = buf[pos];
       const frameData = arrayBuffer.slice(pos, pos + fSize);
+      const fb = new Uint8Array(frameData);
       if (frameId === 'TIT2') result.title  = _id3Str(frameData.slice(1), enc) || result.title;
       else if (frameId === 'TPE1') result.artist = _id3Str(frameData.slice(1), enc) || result.artist;
       else if (frameId === 'TALB') result.album  = _id3Str(frameData.slice(1), enc) || result.album;
       else if (frameId === 'TPE2') result.albumArtist = _id3Str(frameData.slice(1), enc);
       else if (frameId === 'APIC') {
-        const fb = new Uint8Array(frameData);
-        let i = 1;
-        while (i < fb.length && fb[i] !== 0) i++;
-        const mime = new TextDecoder().decode(fb.slice(1, i)) || 'image/jpeg';
-        i++;
-        i++; // pictype
-        if (fb[0] === 1 || fb[0] === 2) { while (i+1 < fb.length && !(fb[i]===0&&fb[i+1]===0)) i+=2; i+=2; }
-        else { while (i < fb.length && fb[i] !== 0) i++; i++; }
-        const img = fb.slice(i);
-        if (img.length > 0) {
-          let bin = '';
-          img.forEach(b => bin += String.fromCharCode(b));
-          result.coverDataUrl = `data:${mime};base64,${btoa(bin)}`;
-        }
+        try {
+          let i = 1;
+          // Lees MIME type (null-terminated)
+          while (i < fb.length && fb[i] !== 0) i++;
+          const mime = _normMime(new TextDecoder('latin1').decode(fb.slice(1, i)));
+          i++; // skip null
+          i++; // skip picture type byte
+          // Lees description (null-terminated, encoding-aware)
+          if (enc === 1 || enc === 2) {
+            // UTF-16: null terminator is 2 bytes (00 00)
+            while (i + 1 < fb.length && !(fb[i] === 0 && fb[i+1] === 0)) i += 2;
+            i += 2;
+          } else {
+            while (i < fb.length && fb[i] !== 0) i++;
+            i++;
+          }
+          const img = fb.slice(i);
+          if (img.length > 100) {
+            result.coverDataUrl = `data:${mime};base64,${_toBase64(img)}`;
+          }
+        } catch(e) {}
       }
       pos += fSize;
     }
@@ -2063,14 +2100,17 @@ async function parseAudioMeta(arrayBuffer, filename) {
           else if (k==='ALBUMARTIST') result.albumArtist = val;
         }
       } else if (blockType === 6) {
-        let p = pos+4;
-        const ml = (buf[p]<<24)|(buf[p+1]<<16)|(buf[p+2]<<8)|buf[p+3]; p+=4;
-        const mime = new TextDecoder().decode(buf.slice(p,p+ml)); p+=ml;
-        const dl = (buf[p]<<24)|(buf[p+1]<<16)|(buf[p+2]<<8)|buf[p+3]; p+=4+dl+16;
-        const il = (buf[p]<<24)|(buf[p+1]<<16)|(buf[p+2]<<8)|buf[p+3]; p+=4;
-        const img = buf.slice(p, p+il);
-        let bin=''; img.forEach(b=>bin+=String.fromCharCode(b));
-        result.coverDataUrl = `data:${mime};base64,${btoa(bin)}`;
+        try {
+          let p = pos + 4; // skip picture type
+          const ml = (buf[p]<<24)|(buf[p+1]<<16)|(buf[p+2]<<8)|buf[p+3]; p += 4;
+          const mime = _normMime(new TextDecoder('latin1').decode(buf.slice(p, p+ml))); p += ml;
+          const dl = (buf[p]<<24)|(buf[p+1]<<16)|(buf[p+2]<<8)|buf[p+3]; p += 4 + dl + 16;
+          const il = (buf[p]<<24)|(buf[p+1]<<16)|(buf[p+2]<<8)|buf[p+3]; p += 4;
+          const img = buf.slice(p, p + il);
+          if (img.length > 100) {
+            result.coverDataUrl = `data:${mime};base64,${_toBase64(img)}`;
+          }
+        } catch(e) {}
       }
       pos += blockSize;
       if (isLast) break;
